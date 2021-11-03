@@ -17,14 +17,14 @@ func main() {
 		Link:  "http://zjt.fujian.gov.cn/xxgk/zxwj/zxwj/",
 		Scope: `.box>div>div:not([style="display: none;"])>div.gl_news`,
 		Attrs: map[string]service.CssSelector{
-			"title": service.CssSelector{
+			"title": {
 				Css: ".gl_news_top_tit",
 			},
-			"link": service.CssSelector{
+			"link": {
 				Css:  "a",
 				Attr: "href",
 			},
-			"date": service.CssSelector{
+			"date": {
 				Css: ".gl_news_top_rq",
 			},
 		},
@@ -41,6 +41,6 @@ func main() {
 		return false
 	})
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("%+v", err))
 	}
 }
