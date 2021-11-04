@@ -73,10 +73,19 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 	}))
 
 	tasks = append(tasks, before...)
+
+	if err = chromedp.Run(ctx, tasks); err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	tasks = nil
 	tasks = append(tasks, chromedp.Navigate(link))
 	tasks = append(tasks, after...)
 
-	if err = chromedp.Run(ctx, tasks); err != nil {
+	timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+	defer cancel()
+
+	if err = chromedp.Run(timeoutCtx, tasks); err != nil {
 		return errors.Wrap(err, "")
 	}
 
