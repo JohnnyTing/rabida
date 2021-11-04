@@ -187,7 +187,7 @@ func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, er
 			timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
 			var value string
 			if stringutils.IsEmpty(css.Attr) {
-				if err = chromedp.Run(timeoutCtx, chromedp.Text(css.Css, &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
+				if err = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(css.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
 					goto ERR
 				}
 			} else {
