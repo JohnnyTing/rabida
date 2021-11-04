@@ -1,6 +1,9 @@
 package service
 
-import "context"
+import (
+	"context"
+	"github.com/chromedp/chromedp"
+)
 
 type CssSelector struct {
 	Css string
@@ -28,5 +31,10 @@ type Rabida interface {
 	Crawl(ctx context.Context, job Job,
 		// callback process result
 		// abort pagination if it returns true
-		callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool) error
+		callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
+		// actions before navigation
+		before []chromedp.Action,
+		// actions after navigation
+		after []chromedp.Action,
+	) error
 }

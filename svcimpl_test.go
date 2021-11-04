@@ -41,7 +41,7 @@ func TestRabidaImpl_Crawl(t *testing.T) {
 			return true
 		}
 		return false
-	})
+	}, nil, nil)
 	if err != nil {
 		panic(fmt.Sprintf("%+v", err))
 	}

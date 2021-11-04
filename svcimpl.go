@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -29,7 +28,8 @@ func (r RabidaImpl) sleep() {
 	time.Sleep(s)
 }
 
-func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool) error {
+func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
+	before []chromedp.Action, after []chromedp.Action) error {
 	var (
 		err         error
 		abort       bool
@@ -61,32 +61,26 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		link = job.StartPageUrl
 	}
 
-	if err = chromedp.Run(ctx, chromedp.Tasks{
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			var err error
-			_, err = page.AddScriptToEvaluateOnNewDocument(lib.Script).Do(ctx)
-			if err != nil {
-				return err
-			}
-			return nil
-		}),
-		chromedp.Navigate(link),
-	}); err != nil {
+	var tasks chromedp.Tasks
+
+	tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
+		var err error
+		_, err = page.AddScriptToEvaluateOnNewDocument(lib.Script).Do(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}))
+
+	tasks = append(tasks, before...)
+	tasks = append(tasks, chromedp.Navigate(link))
+	tasks = append(tasks, after...)
+
+	if err = chromedp.Run(ctx, tasks); err != nil {
 		return errors.Wrap(err, "")
 	}
 
-	if err = chromedp.Run(ctx, chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape)); err != nil {
-		panic(err)
-	}
-
 	time.Sleep(r.conf.Timeout)
-
-	//var html string
-	//err = chromedp.Run(ctx, chromedp.OuterHTML("html", &html, chromedp.ByQuery))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//fmt.Println(html)
 
 	if stringutils.IsNotEmpty(job.StartPageBtn.Css) {
 		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
@@ -193,7 +187,6 @@ func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, er
 			timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
 			var value string
 			if stringutils.IsEmpty(css.Attr) {
-				fmt.Println(css.Css)
 				if err = chromedp.Run(timeoutCtx, chromedp.Text(css.Css, &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
 					goto ERR
 				}
