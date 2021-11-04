@@ -17,7 +17,7 @@ type Job struct {
 	// Attrs map each attribute to a css selector
 	Attrs map[string]CssSelector
 	// Paginator css selector for next page
-	Paginator string
+	Paginator CssSelector
 	// Limit limits how many pages should be crawled
 	Limit int
 }

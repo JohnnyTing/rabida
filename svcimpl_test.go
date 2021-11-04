@@ -27,8 +27,11 @@ func TestRabidaImpl_Crawl(t *testing.T) {
 				Css: ".gl_news_top_rq",
 			},
 		},
-		Paginator: ".c-txt>a:nth-last-of-type(2)",
-		Limit:     3,
+		Paginator: CssSelector{
+			Css:  ".c-txt>a:nth-last-of-type(2)",
+			Attr: "href",
+		},
+		Limit: 3,
 	}
 	err := rabi.Crawl(context.Background(), job, func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {

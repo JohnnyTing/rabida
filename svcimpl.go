@@ -64,7 +64,7 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		return nil
 	}
 
-	if stringutils.IsEmpty(job.Paginator) {
+	if stringutils.IsEmpty(job.Paginator.Css) {
 		return nil
 	}
 
@@ -77,7 +77,7 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 			cancel     context.CancelFunc
 		)
 		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
-		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator, chromedp.ByQuery)); err != nil {
+		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
 			goto ERR
 		}
 		time.Sleep(r.conf.Timeout)
@@ -133,7 +133,7 @@ func (r RabidaImpl) extract(ctx context.Context, job Job) ([]map[string]string, 
 	var ok bool
 	timeoutCtx, cancel := context.WithTimeout(ctx, r.conf.Timeout)
 	defer cancel()
-	_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(job.Paginator, "href", &nextPageUrl, &ok,
+	_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, &ok,
 		chromedp.ByQuery))
 	return ret, nextPageUrl, nil
 }
