@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
 	"github.com/unionj-cloud/go-doudou/stringutils"
@@ -26,11 +27,12 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		cancel      context.CancelFunc
 	)
 	opts := []chromedp.ExecAllocatorOption{
-		chromedp.ExecPath(r.conf.ChromePath),
 		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"),
+		chromedp.Headless,
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.DisableGPU,
+		chromedp.NoSandbox,
 	}
 
 	ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
@@ -38,8 +40,17 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 
 	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
-
-	if err = chromedp.Run(ctx, lib.Navigate(job.Link)); err != nil {
+	if err = chromedp.Run(ctx, chromedp.Tasks{
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var err error
+			_, err = page.AddScriptToEvaluateOnNewDocument(lib.Script).Do(ctx)
+			if err != nil {
+				return err
+			}
+			return nil
+		}),
+		chromedp.Navigate(job.Link),
+	}); err != nil {
 		return errors.Wrap(err, "")
 	}
 
@@ -69,7 +80,7 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator, chromedp.ByQuery)); err != nil {
 			goto ERR
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(r.conf.Timeout)
 		if ret, nextPageUrl, err = r.extract(ctx, job); err != nil {
 			goto ERR
 		}

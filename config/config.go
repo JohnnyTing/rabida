@@ -20,8 +20,6 @@ type RabiConfig struct {
 	ThrottleDuration time.Duration `split_words:"true"`
 	// Timeout specify a timeout for each page loading and element lookup
 	Timeout time.Duration `default:"10s"`
-	// ChromePath specify Chrome browser path in the current system
-	ChromePath string
 }
 
 func LoadFromEnv() *RabiConfig {
