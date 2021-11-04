@@ -6,6 +6,8 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
+	"math/rand"
+	"time"
 )
 
 // Script see: https://intoli.com/blog/not-possible-to-block-chrome-headless/
@@ -96,4 +98,11 @@ func Navigate(link string) chromedp.Action {
 		//time.Sleep(5)
 		return waitLoaded(ctx)
 	})
+}
+
+func RandDuration(min, max time.Duration) time.Duration {
+	from := min.Milliseconds()
+	to := max.Milliseconds()
+	rand.Seed(time.Now().Local().UnixNano())
+	return time.Millisecond * time.Duration(rand.Int63n(to-from)+from)
 }

@@ -20,6 +20,8 @@ type RabiConfig struct {
 	ThrottleDuration time.Duration `split_words:"true"`
 	// Timeout specify a timeout for each page loading and element lookup
 	Timeout time.Duration `default:"10s"`
+	// Mode Headless or browser
+	Mode string `default:"headless"`
 }
 
 func LoadFromEnv() *RabiConfig {

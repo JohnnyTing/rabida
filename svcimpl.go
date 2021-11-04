@@ -7,6 +7,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/unionj-cloud/go-doudou/stringutils"
 	"github.com/unionj-cloud/rabida/config"
 	"github.com/unionj-cloud/rabida/lib"
@@ -17,6 +18,17 @@ type RabidaImpl struct {
 	conf *config.RabiConfig
 }
 
+func (r RabidaImpl) sleep() {
+	var s time.Duration
+	if len(r.conf.Delay) > 1 {
+		s = lib.RandDuration(r.conf.Delay[0], r.conf.Delay[1])
+	} else {
+		s = r.conf.Delay[0]
+	}
+	logrus.Infof("sleep %s to crawl next page\n", s.String())
+	time.Sleep(s)
+}
+
 func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool) error {
 	var (
 		err         error
@@ -25,14 +37,17 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		nextPageUrl string
 		pageNo      int
 		cancel      context.CancelFunc
+		timeoutCtx  context.Context
 	)
 	opts := []chromedp.ExecAllocatorOption{
 		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"),
-		chromedp.Headless,
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.DisableGPU,
 		chromedp.NoSandbox,
+	}
+	if r.conf.Mode == "headless" {
+		opts = append(opts, chromedp.Headless)
 	}
 
 	ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
@@ -40,6 +55,12 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 
 	ctx, cancel = chromedp.NewContext(ctx)
 	defer cancel()
+
+	link := job.Link
+	if stringutils.IsNotEmpty(job.StartPageUrl) {
+		link = job.StartPageUrl
+	}
+
 	if err = chromedp.Run(ctx, chromedp.Tasks{
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error
@@ -49,9 +70,31 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 			}
 			return nil
 		}),
-		chromedp.Navigate(job.Link),
+		chromedp.Navigate(link),
 	}); err != nil {
 		return errors.Wrap(err, "")
+	}
+
+	if err = chromedp.Run(ctx, chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape)); err != nil {
+		panic(err)
+	}
+
+	time.Sleep(r.conf.Timeout)
+
+	//var html string
+	//err = chromedp.Run(ctx, chromedp.OuterHTML("html", &html, chromedp.ByQuery))
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(html)
+
+	if stringutils.IsNotEmpty(job.StartPageBtn.Css) {
+		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+		defer cancel()
+		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery)); err != nil {
+			return errors.Wrap(err, "")
+		}
+		time.Sleep(r.conf.Timeout)
 	}
 
 	ret, nextPageUrl, err = r.extract(ctx, job)
@@ -68,14 +111,9 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		return nil
 	}
 
-	fmt.Printf("sleep 1s to crawl next page\n")
-	time.Sleep(r.conf.Delay[0])
+	r.sleep()
 
 	for {
-		var (
-			timeoutCtx context.Context
-			cancel     context.CancelFunc
-		)
 		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
 		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
 			goto ERR
@@ -89,8 +127,8 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 			goto END
 		}
 		cancel()
-		fmt.Printf("sleep 1s to crawl next page\n")
-		time.Sleep(r.conf.Delay[0])
+
+		r.sleep()
 		continue
 
 	END:
@@ -155,6 +193,7 @@ func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, er
 			timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
 			var value string
 			if stringutils.IsEmpty(css.Attr) {
+				fmt.Println(css.Css)
 				if err = chromedp.Run(timeoutCtx, chromedp.Text(css.Css, &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
 					goto ERR
 				}

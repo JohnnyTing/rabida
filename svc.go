@@ -19,7 +19,9 @@ type Job struct {
 	// Paginator css selector for next page
 	Paginator CssSelector
 	// Limit limits how many pages should be crawled
-	Limit int
+	Limit        int
+	StartPageBtn CssSelector
+	StartPageUrl string
 }
 
 type Rabida interface {
