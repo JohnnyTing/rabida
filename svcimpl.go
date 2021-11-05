@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
@@ -9,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/unionj-cloud/go-doudou/stringutils"
 	"github.com/unionj-cloud/rabida/config"
-	"github.com/unionj-cloud/rabida/lib"
+	"github.com/unionj-cloud/rabida/internal/lib"
 	"time"
 )
 
@@ -17,11 +18,11 @@ type RabidaImpl struct {
 	conf *config.RabiConfig
 }
 
-func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig) error {
+func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig) error {
 	var (
 		err         error
 		abort       bool
-		ret         []map[string]string
+		ret         []interface{}
 		nextPageUrl string
 		pageNo      int
 		cancel      context.CancelFunc
@@ -31,6 +32,7 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.NoSandbox,
+		//chromedp.WindowSize(1777, 903),
 	}
 	if conf.Mode == "headless" {
 		opts = append(opts, chromedp.Headless)
@@ -143,7 +145,7 @@ func (r RabidaImpl) sleep(conf config.RabiConfig) {
 	time.Sleep(s)
 }
 
-func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
+func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool,
 	before []chromedp.Action, after []chromedp.Action) error {
 	return r.CrawlWithConfig(ctx, job, callback, before, after, *r.conf)
 }
@@ -156,91 +158,71 @@ func (e errNotFound) Error() string {
 
 var ErrNotFound error = errNotFound{}
 
-func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, string, error) {
-	var (
-		err error
-		ret []map[string]string
-	)
-
-	if stringutils.IsEmpty(job.Scope) {
-		if ret, err = r.noscope(ctx, job, conf); err != nil {
-			return nil, "", errors.Wrap(err, "")
+func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node, cssSelector CssSelector, conf config.RabiConfig) []interface{} {
+	if stringutils.IsEmpty(scope) {
+		scope = "html"
+	}
+	var nodes []*cdp.Node
+	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
+	defer cancel()
+	if father != nil {
+		if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
+			panic(errors.Wrap(ErrNotFound, ""))
 		}
 	} else {
-		if ret, err = r.scope(ctx, job, conf); err != nil {
-			return nil, "", errors.Wrap(err, "")
+		if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
+			panic(errors.Wrap(ErrNotFound, ""))
 		}
 	}
+	var ret []interface{}
+	for _, node := range nodes {
+		if cssSelector.Attrs == nil {
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			var value string
+			if stringutils.IsEmpty(cssSelector.Attr) {
+				_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node)))
+			} else {
+				var ok bool
+				_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(cssSelector.Css, cssSelector.Attr, &value, &ok, chromedp.ByQuery, chromedp.FromNode(node)))
+			}
+			ret = append(ret, value)
+			cancel()
+		} else {
+			_scope := cssSelector.Scope
+			if stringutils.IsEmpty(_scope) {
+				_scope = scope
+			}
+			data := make(map[string][]interface{})
+			for attr, sel := range cssSelector.Attrs {
+				data[attr] = r.populate(ctx, _scope, node, sel, conf)
+			}
+			for _, item := range lib.Flat(data) {
+				ret = append(ret, item)
+			}
+		}
+	}
+	return ret
+}
 
-	var nextPageUrl string
+func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig) (ret []interface{}, nextPageUrl string, err error) {
+	defer func() {
+		if val := recover(); val != nil {
+			var ok bool
+			err, ok = val.(error)
+			if !ok {
+				err = errors.New(fmt.Sprint(val))
+			} else {
+				err = errors.Wrap(err, "recover from panic")
+			}
+		}
+	}()
+	ret = r.populate(ctx, "", nil, job.CssSelector, conf)
 	var ok bool
 	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
 	_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, &ok,
 		chromedp.ByQuery))
-	return ret, nextPageUrl, nil
-}
-
-func (r RabidaImpl) scope(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, error) {
-	var (
-		nodes []*cdp.Node
-		err   error
-		ret   []map[string]string
-	)
-	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
-	defer cancel()
-	if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Scope, &nodes)); err != nil {
-		return nil, errors.Wrap(ErrNotFound, "")
-	}
-	for _, node := range nodes {
-		data := make(map[string]string)
-		for attr, css := range job.Attrs {
-			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-			var value string
-			if stringutils.IsEmpty(css.Attr) {
-				if err = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(css.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
-					goto ERR
-				}
-			} else {
-				var ok bool
-				if err = chromedp.Run(timeoutCtx, chromedp.AttributeValue(css.Css, css.Attr, &value, &ok, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
-					goto ERR
-				}
-			}
-			data[attr] = value
-		ERR:
-			cancel()
-		}
-		ret = append(ret, data)
-	}
-	return ret, nil
-}
-
-func (r RabidaImpl) noscope(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, error) {
-	var (
-		err error
-		ret []map[string]string
-	)
-	data := make(map[string]string)
-	for attr, css := range job.Attrs {
-		timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
-		var value string
-		if stringutils.IsEmpty(css.Attr) {
-			if err = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(css.Css, "innerText", &value, chromedp.ByQuery)); err != nil {
-				goto ERR
-			}
-		} else {
-			var ok bool
-			if err = chromedp.Run(timeoutCtx, chromedp.AttributeValue(css.Css, css.Attr, &value, &ok, chromedp.ByQuery)); err != nil {
-				goto ERR
-			}
-		}
-		data[attr] = value
-	ERR:
-		cancel()
-	}
-	ret = append(ret, data)
-	return ret, nil
+	return
 }
 
 func NewRabida(conf *config.RabiConfig) Rabida {

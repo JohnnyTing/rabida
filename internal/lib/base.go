@@ -106,3 +106,23 @@ func RandDuration(min, max time.Duration) time.Duration {
 	rand.Seed(time.Now().Local().UnixNano())
 	return time.Millisecond * time.Duration(rand.Int63n(to-from)+from)
 }
+
+func Flat(data map[string][]interface{}) (ret []map[string]interface{}) {
+	if len(data) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	values := data[keys[0]]
+	num := len(values)
+	for i := 0; i < num; i++ {
+		item := make(map[string]interface{})
+		for _, k := range keys {
+			item[k] = data[k][i]
+		}
+		ret = append(ret, item)
+	}
+	return
+}
