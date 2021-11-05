@@ -28,10 +28,8 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		timeoutCtx  context.Context
 	)
 	opts := []chromedp.ExecAllocatorOption{
-		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"),
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
-		chromedp.DisableGPU,
 		chromedp.NoSandbox,
 	}
 	if conf.Mode == "headless" {
