@@ -17,19 +17,7 @@ type RabidaImpl struct {
 	conf *config.RabiConfig
 }
 
-func (r RabidaImpl) sleep() {
-	var s time.Duration
-	if len(r.conf.Delay) > 1 {
-		s = lib.RandDuration(r.conf.Delay[0], r.conf.Delay[1])
-	} else {
-		s = r.conf.Delay[0]
-	}
-	logrus.Infof("sleep %s to crawl next page\n", s.String())
-	time.Sleep(s)
-}
-
-func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
-	before []chromedp.Action, after []chromedp.Action) error {
+func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig) error {
 	var (
 		err         error
 		abort       bool
@@ -46,7 +34,7 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		chromedp.DisableGPU,
 		chromedp.NoSandbox,
 	}
-	if r.conf.Mode == "headless" {
+	if conf.Mode == "headless" {
 		opts = append(opts, chromedp.Headless)
 	}
 
@@ -82,25 +70,25 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 	tasks = append(tasks, chromedp.Navigate(link))
 	tasks = append(tasks, after...)
 
-	timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+	timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
 
 	if err = chromedp.Run(timeoutCtx, tasks); err != nil {
 		return errors.Wrap(err, "")
 	}
 
-	time.Sleep(r.conf.Timeout)
+	time.Sleep(conf.Timeout)
 
 	if stringutils.IsNotEmpty(job.StartPageBtn.Css) {
-		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 		defer cancel()
 		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery)); err != nil {
 			return errors.Wrap(err, "")
 		}
-		time.Sleep(r.conf.Timeout)
+		time.Sleep(conf.Timeout)
 	}
 
-	ret, nextPageUrl, err = r.extract(ctx, job)
+	ret, nextPageUrl, err = r.extract(ctx, job, conf)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -114,15 +102,15 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		return nil
 	}
 
-	r.sleep()
+	r.sleep(conf)
 
 	for {
-		timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
 			goto ERR
 		}
-		time.Sleep(r.conf.Timeout)
-		if ret, nextPageUrl, err = r.extract(ctx, job); err != nil {
+		time.Sleep(conf.Timeout)
+		if ret, nextPageUrl, err = r.extract(ctx, job, conf); err != nil {
 			goto ERR
 		}
 		pageNo++
@@ -131,7 +119,7 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 		}
 		cancel()
 
-		r.sleep()
+		r.sleep(conf)
 		continue
 
 	END:
@@ -146,6 +134,22 @@ func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[
 	}
 }
 
+func (r RabidaImpl) sleep(conf config.RabiConfig) {
+	var s time.Duration
+	if len(conf.Delay) > 1 {
+		s = lib.RandDuration(conf.Delay[0], conf.Delay[1])
+	} else {
+		s = conf.Delay[0]
+	}
+	logrus.Infof("sleep %s to crawl next page\n", s.String())
+	time.Sleep(s)
+}
+
+func (r RabidaImpl) Crawl(ctx context.Context, job Job, callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
+	before []chromedp.Action, after []chromedp.Action) error {
+	return r.CrawlWithConfig(ctx, job, callback, before, after, *r.conf)
+}
+
 type errNotFound struct{}
 
 func (e errNotFound) Error() string {
@@ -154,38 +158,38 @@ func (e errNotFound) Error() string {
 
 var ErrNotFound error = errNotFound{}
 
-func (r RabidaImpl) extract(ctx context.Context, job Job) ([]map[string]string, string, error) {
+func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, string, error) {
 	var (
 		err error
 		ret []map[string]string
 	)
 
 	if stringutils.IsEmpty(job.Scope) {
-		if ret, err = r.noscope(ctx, job); err != nil {
+		if ret, err = r.noscope(ctx, job, conf); err != nil {
 			return nil, "", errors.Wrap(err, "")
 		}
 	} else {
-		if ret, err = r.scope(ctx, job); err != nil {
+		if ret, err = r.scope(ctx, job, conf); err != nil {
 			return nil, "", errors.Wrap(err, "")
 		}
 	}
 
 	var nextPageUrl string
 	var ok bool
-	timeoutCtx, cancel := context.WithTimeout(ctx, r.conf.Timeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
 	_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, &ok,
 		chromedp.ByQuery))
 	return ret, nextPageUrl, nil
 }
 
-func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, error) {
+func (r RabidaImpl) scope(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, error) {
 	var (
 		nodes []*cdp.Node
 		err   error
 		ret   []map[string]string
 	)
-	timeoutCtx, cancel := context.WithTimeout(ctx, r.conf.Timeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
 	if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Scope, &nodes)); err != nil {
 		return nil, errors.Wrap(ErrNotFound, "")
@@ -193,7 +197,7 @@ func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, er
 	for _, node := range nodes {
 		data := make(map[string]string)
 		for attr, css := range job.Attrs {
-			timeoutCtx, cancel = context.WithTimeout(ctx, r.conf.Timeout)
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 			var value string
 			if stringutils.IsEmpty(css.Attr) {
 				if err = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(css.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node))); err != nil {
@@ -214,17 +218,17 @@ func (r RabidaImpl) scope(ctx context.Context, job Job) ([]map[string]string, er
 	return ret, nil
 }
 
-func (r RabidaImpl) noscope(ctx context.Context, job Job) ([]map[string]string, error) {
+func (r RabidaImpl) noscope(ctx context.Context, job Job, conf config.RabiConfig) ([]map[string]string, error) {
 	var (
 		err error
 		ret []map[string]string
 	)
 	data := make(map[string]string)
 	for attr, css := range job.Attrs {
-		timeoutCtx, cancel := context.WithTimeout(ctx, r.conf.Timeout)
+		timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 		var value string
 		if stringutils.IsEmpty(css.Attr) {
-			if err = chromedp.Run(timeoutCtx, chromedp.Text(css.Css, &value, chromedp.ByQuery)); err != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(css.Css, "innerText", &value, chromedp.ByQuery)); err != nil {
 				goto ERR
 			}
 		} else {

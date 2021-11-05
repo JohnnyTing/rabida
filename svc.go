@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/chromedp/chromedp"
+	"github.com/unionj-cloud/rabida/config"
 )
 
 type CssSelector struct {
@@ -36,5 +37,16 @@ type Rabida interface {
 		before []chromedp.Action,
 		// actions after navigation
 		after []chromedp.Action,
+	) error
+
+	CrawlWithConfig(ctx context.Context, job Job,
+		// callback process result
+		// abort pagination if it returns true
+		callback func(ret []map[string]string, nextPageUrl string, currentPageNo int) bool,
+		// actions before navigation
+		before []chromedp.Action,
+		// actions after navigation
+		after []chromedp.Action,
+		conf config.RabiConfig,
 	) error
 }
