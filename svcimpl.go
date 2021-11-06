@@ -186,7 +186,7 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
-			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			timeoutCtx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
 			var value string
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if cssSelector.Css == ":scope" {
