@@ -18,7 +18,7 @@ type RabidaImpl struct {
 	conf *config.RabiConfig
 }
 
-func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig) error {
+func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
 	var (
 		err         error
 		abort       bool
@@ -32,8 +32,8 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.NoSandbox,
-		//chromedp.WindowSize(1777, 903),
 	}
+	opts = append(opts, options...)
 	if conf.Mode == "headless" {
 		opts = append(opts, chromedp.Headless)
 	}
@@ -159,20 +159,29 @@ func (e errNotFound) Error() string {
 var ErrNotFound error = errNotFound{}
 
 func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node, cssSelector CssSelector, conf config.RabiConfig) []interface{} {
-	if stringutils.IsEmpty(scope) {
-		scope = "html"
-	}
 	var nodes []*cdp.Node
 	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
-	if father != nil {
-		if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
-			panic(errors.Wrap(ErrNotFound, ""))
+	if stringutils.IsNotEmpty(scope) {
+		if father != nil {
+			timeoutCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
+				var html string
+				err = chromedp.Run(ctx, chromedp.OuterHTML("html", &html, chromedp.ByQuery))
+				if err != nil {
+					panic(errors.Wrap(ErrNotFound, ""))
+				}
+				fmt.Println(html)
+				panic(errors.Wrap(ErrNotFound, ""))
+			}
+		} else {
+			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
+				panic(errors.Wrap(ErrNotFound, ""))
+			}
 		}
 	} else {
-		if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
-			panic(errors.Wrap(ErrNotFound, ""))
-		}
+		nodes = append(nodes, father)
 	}
 	var ret []interface{}
 	for _, node := range nodes {
@@ -180,25 +189,51 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 			var value string
 			if stringutils.IsEmpty(cssSelector.Attr) {
-				_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node)))
+				if cssSelector.Css == ":scope" {
+					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, "innerText", &value, chromedp.ByNodeID))
+				} else {
+					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node)))
+				}
 			} else {
 				var ok bool
-				_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(cssSelector.Css, cssSelector.Attr, &value, &ok, chromedp.ByQuery, chromedp.FromNode(node)))
+				if cssSelector.Css == ":scope" {
+					if cssSelector.Attr == "outerHTML" {
+						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
+					} else if cssSelector.Attr == "innerHTML" {
+						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
+					} else {
+						_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue([]cdp.NodeID{node.NodeID}, cssSelector.Attr, &value, &ok, chromedp.ByNodeID))
+					}
+				} else {
+					if cssSelector.Attr == "outerHTML" {
+						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
+					} else if cssSelector.Attr == "innerHTML" {
+						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
+					} else {
+						_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(cssSelector.Css, cssSelector.Attr, &value, &ok, chromedp.ByQuery, chromedp.FromNode(node)))
+					}
+				}
 			}
-			ret = append(ret, value)
+			if stringutils.IsNotEmpty(value) {
+				ret = append(ret, value)
+			}
 			cancel()
 		} else {
-			_scope := cssSelector.Scope
-			if stringutils.IsEmpty(_scope) {
-				_scope = scope
-			}
-			data := make(map[string][]interface{})
+			data := make(map[string]interface{})
 			for attr, sel := range cssSelector.Attrs {
-				data[attr] = r.populate(ctx, _scope, node, sel, conf)
+				result := r.populate(ctx, sel.Scope, node, sel, conf)
+				if len(result) > 0 {
+					if stringutils.IsEmpty(sel.Scope) {
+						data[attr] = result[0]
+					} else {
+						data[attr] = result
+					}
+				}
 			}
-			for _, item := range lib.Flat(data) {
-				ret = append(ret, item)
+			if len(data) == 0 {
+				continue
 			}
+			ret = append(ret, data)
 		}
 	}
 	return ret
@@ -216,7 +251,12 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 			}
 		}
 	}()
-	ret = r.populate(ctx, "", nil, job.CssSelector, conf)
+
+	rootScope := job.Scope
+	if stringutils.IsEmpty(rootScope) {
+		rootScope = "html"
+	}
+	ret = r.populate(ctx, rootScope, nil, job.CssSelector, conf)
 	var ok bool
 	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()

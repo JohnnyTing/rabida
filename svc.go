@@ -50,5 +50,6 @@ type Rabida interface {
 		// actions after navigation
 		after []chromedp.Action,
 		conf config.RabiConfig,
+		options ...chromedp.ExecAllocatorOption,
 	) error
 }
