@@ -164,7 +164,7 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 	defer cancel()
 	if stringutils.IsNotEmpty(scope) {
 		if father != nil {
-			timeoutCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 			defer cancel()
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
 				var html string
