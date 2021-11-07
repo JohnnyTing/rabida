@@ -167,17 +167,11 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 			defer cancel()
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
-				var html string
-				err = chromedp.Run(ctx, chromedp.OuterHTML("html", &html, chromedp.ByQuery))
-				if err != nil {
-					panic(errors.Wrap(ErrNotFound, ""))
-				}
-				fmt.Println(html)
-				panic(errors.Wrap(ErrNotFound, ""))
+				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
 			}
 		} else {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
-				panic(errors.Wrap(ErrNotFound, ""))
+				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
 			}
 		}
 	} else {
