@@ -189,20 +189,19 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 			timeoutCtx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
 			var value string
 			if stringutils.IsEmpty(cssSelector.Attr) {
-				if cssSelector.Css == ":scope" {
+				if stringutils.IsEmpty(cssSelector.Css) {
 					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, "innerText", &value, chromedp.ByNodeID))
 				} else {
 					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node)))
 				}
 			} else {
-				var ok bool
-				if cssSelector.Css == ":scope" {
+				if stringutils.IsEmpty(cssSelector.Css) {
 					if cssSelector.Attr == "outerHTML" {
 						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
 					} else if cssSelector.Attr == "innerHTML" {
 						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
 					} else {
-						_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue([]cdp.NodeID{node.NodeID}, cssSelector.Attr, &value, &ok, chromedp.ByNodeID))
+						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, cssSelector.Attr, &value, chromedp.ByNodeID))
 					}
 				} else {
 					if cssSelector.Attr == "outerHTML" {
@@ -210,7 +209,7 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 					} else if cssSelector.Attr == "innerHTML" {
 						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
 					} else {
-						_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(cssSelector.Css, cssSelector.Attr, &value, &ok, chromedp.ByQuery, chromedp.FromNode(node)))
+						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, cssSelector.Attr, &value, chromedp.ByQuery, chromedp.FromNode(node)))
 					}
 				}
 			}
@@ -257,11 +256,9 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 		rootScope = "html"
 	}
 	ret = r.populate(ctx, rootScope, nil, job.CssSelector, conf)
-	var ok bool
 	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
-	_ = chromedp.Run(timeoutCtx, chromedp.AttributeValue(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, &ok,
-		chromedp.ByQuery))
+	_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, chromedp.ByQuery))
 	return
 }
 
