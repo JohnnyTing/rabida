@@ -186,7 +186,13 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 				if stringutils.IsEmpty(cssSelector.Css) {
 					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, "innerText", &value, chromedp.ByNodeID))
 				} else {
-					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, "innerText", &value, chromedp.ByQuery, chromedp.FromNode(node)))
+					var _nodes []*cdp.Node
+					_ = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector.Css, &_nodes, chromedp.ByQueryAll, chromedp.FromNode(node)))
+					for _, _node := range _nodes {
+						var temp string
+						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{_node.NodeID}, "innerText", &temp, chromedp.ByNodeID))
+						value += temp
+					}
 				}
 			} else {
 				if stringutils.IsEmpty(cssSelector.Css) {
@@ -202,6 +208,14 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
 					} else if cssSelector.Attr == "innerHTML" {
 						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
+					} else if cssSelector.Attr == "innerText" {
+						var _nodes []*cdp.Node
+						_ = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector.Css, &_nodes, chromedp.ByQueryAll, chromedp.FromNode(node)))
+						for _, _node := range _nodes {
+							var temp string
+							_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{_node.NodeID}, "innerText", &temp, chromedp.ByNodeID))
+							value += temp
+						}
 					} else {
 						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, cssSelector.Attr, &value, chromedp.ByQuery, chromedp.FromNode(node)))
 					}
