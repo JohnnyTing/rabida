@@ -67,7 +67,7 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	}
 
 	tasks = nil
-	tasks = append(tasks, chromedp.Navigate(link))
+	tasks = append(tasks, lib.Navigate(link))
 	tasks = append(tasks, after...)
 
 	timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)

@@ -6,6 +6,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
+	"github.com/pkg/errors"
 	"math/rand"
 	"time"
 )
@@ -93,10 +94,9 @@ func Navigate(link string) chromedp.Action {
 	return chromedp.ActionFunc(func(ctx context.Context) error {
 		_, _, _, err := page.Navigate(link).Do(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
-		//time.Sleep(5)
-		return waitLoaded(ctx)
+		return nil
 	})
 }
 
