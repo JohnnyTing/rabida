@@ -80,10 +80,22 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	time.Sleep(conf.Timeout)
 
 	if stringutils.IsNotEmpty(job.StartPageBtn.Css) {
+		var father *cdp.Node
+		if job.CssSelector.Iframe {
+			if father, err = iframe(ctx, conf.Timeout); err != nil {
+				return errors.Wrap(err, "")
+			}
+		}
 		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 		defer cancel()
-		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery)); err != nil {
-			return errors.Wrap(err, "")
+		if father != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
+				return errors.Wrap(err, "")
+			}
+		} else {
+			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery)); err != nil {
+				return errors.Wrap(err, "")
+			}
 		}
 		time.Sleep(conf.Timeout)
 	}
@@ -105,9 +117,21 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	r.sleep(conf)
 
 	for {
+		var father *cdp.Node
+		if job.CssSelector.Iframe {
+			if father, err = iframe(ctx, conf.Timeout); err != nil {
+				return errors.Wrap(err, "")
+			}
+		}
 		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-		if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
-			goto ERR
+		if father != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
+				goto ERR
+			}
+		} else {
+			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
+				goto ERR
+			}
 		}
 		time.Sleep(conf.Timeout)
 		if ret, nextPageUrl, err = r.extract(ctx, job, conf); err != nil {
@@ -134,6 +158,19 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	}
 }
 
+func iframe(ctx context.Context, timeout time.Duration) (iframe *cdp.Node, err error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var iframes []*cdp.Node
+	if err = chromedp.Run(timeoutCtx, chromedp.Nodes("iframe", &iframes, chromedp.ByQuery)); err != nil {
+		return nil, errors.Wrap(err, "")
+	}
+	if len(iframes) > 0 {
+		iframe = iframes[0]
+	}
+	return
+}
+
 func (r RabidaImpl) sleep(conf config.RabiConfig) {
 	var s time.Duration
 	if len(conf.Delay) > 1 {
@@ -158,14 +195,16 @@ func (e errNotFound) Error() string {
 
 var ErrNotFound error = errNotFound{}
 
-func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node, cssSelector CssSelector, conf config.RabiConfig) []interface{} {
+func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector CssSelector, conf config.RabiConfig) []interface{} {
+	scope := cssSelector.Scope
+	if stringutils.IsEmpty(scope) && father == nil {
+		scope = "html"
+	}
 	var nodes []*cdp.Node
-	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
-	defer cancel()
 	if stringutils.IsNotEmpty(scope) {
+		timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
+		defer cancel()
 		if father != nil {
-			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-			defer cancel()
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
 				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
 			}
@@ -180,7 +219,7 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
-			timeoutCtx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+			timeoutCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 			var value string
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if stringutils.IsEmpty(cssSelector.Css) {
@@ -228,7 +267,7 @@ func (r RabidaImpl) populate(ctx context.Context, scope string, father *cdp.Node
 		} else {
 			data := make(map[string]interface{})
 			for attr, sel := range cssSelector.Attrs {
-				result := r.populate(ctx, sel.Scope, node, sel, conf)
+				result := r.populate(ctx, node, sel, conf)
 				if len(result) > 0 {
 					if stringutils.IsEmpty(sel.Scope) {
 						data[attr] = result[0]
@@ -259,11 +298,13 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 		}
 	}()
 
-	rootScope := job.Scope
-	if stringutils.IsEmpty(rootScope) {
-		rootScope = "html"
+	var father *cdp.Node
+	if job.CssSelector.Iframe {
+		if father, err = iframe(ctx, conf.Timeout); err != nil {
+			panic(errors.Wrap(err, ""))
+		}
 	}
-	ret = r.populate(ctx, rootScope, nil, job.CssSelector, conf)
+	ret = r.populate(ctx, father, job.CssSelector, conf)
 	timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
 	_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, chromedp.ByQuery))

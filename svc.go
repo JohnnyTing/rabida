@@ -15,13 +15,15 @@ type CssSelector struct {
 	Scope string
 	// Attrs map each attribute to a css selector. when Attrs equals nil, stop recursively populating
 	Attrs map[string]CssSelector
+	// Iframe if true, we will look for the element(s) within the first iframe in the page
+	Iframe bool
 }
 
 type Job struct {
 	// Link the url you want to crawl
 	Link string
 	// CssSelector root css selector
-	CssSelector
+	CssSelector CssSelector
 	// Paginator css selector for next page
 	Paginator CssSelector
 	// Limit limits how many pages should be crawled
