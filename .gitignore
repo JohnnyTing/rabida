@@ -16,3 +16,5 @@
 vendor
 cmd
 .idea
+.DS_Store
+out

@@ -22,6 +22,10 @@ type RabiConfig struct {
 	Timeout time.Duration `default:"10s"`
 	// Mode Headless or browser
 	Mode string `default:"headless"`
+	// Debug if true, it will take full screenshot of every page and output debug logs to stdout
+	Debug bool
+	// Out screenshot png files output path
+	Out string
 }
 
 func LoadFromEnv() *RabiConfig {

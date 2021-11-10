@@ -3,19 +3,37 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/Jeffail/gabs/v2"
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/unionj-cloud/go-doudou/fileutils"
+	"github.com/unionj-cloud/go-doudou/pathutils"
 	"github.com/unionj-cloud/go-doudou/stringutils"
 	"github.com/unionj-cloud/rabida/config"
 	"github.com/unionj-cloud/rabida/internal/lib"
+	"io/ioutil"
+	"path/filepath"
 	"time"
 )
 
 type RabidaImpl struct {
 	conf *config.RabiConfig
+}
+
+func screenshot(ctx context.Context, out string, pageNo int) (err error) {
+	var buf []byte
+	if err = chromedp.Run(ctx, chromedp.FullScreenshot(&buf, 100)); err != nil {
+		return errors.Wrap(err, "")
+	}
+	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("screenshot_%d.png", pageNo)), buf, 0644); err != nil {
+		return errors.Wrap(err, "")
+	}
+	return nil
 }
 
 func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
@@ -27,22 +45,35 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		pageNo      int
 		cancel      context.CancelFunc
 		timeoutCtx  context.Context
+		out         string
 	)
-	opts := []chromedp.ExecAllocatorOption{
-		chromedp.NoFirstRun,
-		chromedp.NoDefaultBrowserCheck,
-		chromedp.NoSandbox,
-	}
-	opts = append(opts, options...)
-	if conf.Mode == "headless" {
-		opts = append(opts, chromedp.Headless)
+
+	if r.conf.Debug {
+		out = r.conf.Out
+		if out, err = pathutils.FixPath(out, ""); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if err = fileutils.CreateDirectory(out); err != nil {
+			return errors.Wrap(err, "")
+		}
 	}
 
-	ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
-	defer cancel()
+	if _ctx := chromedp.FromContext(ctx); _ctx == nil {
+		opts := []chromedp.ExecAllocatorOption{
+			chromedp.NoFirstRun,
+			chromedp.NoDefaultBrowserCheck,
+			chromedp.NoSandbox,
+		}
+		opts = append(opts, options...)
+		if conf.Mode == "headless" {
+			opts = append(opts, chromedp.Headless)
+		}
+		ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
+		defer cancel()
 
-	ctx, cancel = chromedp.NewContext(ctx)
-	defer cancel()
+		ctx, cancel = chromedp.NewContext(ctx)
+		defer cancel()
+	}
 
 	link := job.Link
 	if stringutils.IsNotEmpty(job.StartPageUrl) {
@@ -67,8 +98,28 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	}
 
 	tasks = nil
-	tasks = append(tasks, lib.Navigate(link))
+	tasks = append(tasks, network.Enable(), lib.Navigate(link))
 	tasks = append(tasks, after...)
+
+	if r.conf.Debug {
+		chromedp.ListenTarget(ctx, func(event interface{}) {
+			switch ev := event.(type) {
+			case *runtime.EventConsoleAPICalled:
+				logrus.Printf("* console.%s call:\n", ev.Type)
+				for _, arg := range ev.Args {
+					logrus.Printf("%s - %s\n", arg.Type, arg.Value)
+				}
+			case *runtime.EventExceptionThrown:
+				// Since ts.URL uses a random port, replace it.
+				s := ev.ExceptionDetails.Error()
+				logrus.Printf("* %s\n", s)
+			case *network.EventResponseReceived:
+				if ev.Type == network.ResourceTypeXHR || ev.Type == network.ResourceTypeFetch {
+					logrus.Println(gabs.Wrap(ev.Response).StringIndent("", "  "))
+				}
+			}
+		})
+	}
 
 	timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 	defer cancel()
@@ -88,16 +139,32 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		}
 		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
 		defer cancel()
+		var buttons []*cdp.Node
 		if father != nil {
-			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.StartPageBtn.Css, &buttons, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
 				return errors.Wrap(err, "")
 			}
 		} else {
-			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.StartPageBtn.Css, chromedp.ByQuery)); err != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.StartPageBtn.Css, &buttons, chromedp.ByQuery)); err != nil {
+				return errors.Wrap(err, "")
+			}
+		}
+		if len(buttons) > 0 {
+			nextPageBtn := buttons[0]
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			defer cancel()
+			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
 				return errors.Wrap(err, "")
 			}
 		}
 		time.Sleep(conf.Timeout)
+	}
+
+	pageNo++
+	if r.conf.Debug {
+		if err = screenshot(ctx, out, pageNo); err != nil {
+			return errors.Wrap(err, "")
+		}
 	}
 
 	ret, nextPageUrl, err = r.extract(ctx, job, conf)
@@ -105,7 +172,6 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		return errors.Wrap(err, "")
 	}
 
-	pageNo++
 	if abort = callback(ret, nextPageUrl, pageNo); abort {
 		return nil
 	}
@@ -124,33 +190,47 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 			}
 		}
 		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+		var buttons []*cdp.Node
 		if father != nil {
-			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Paginator.Css, &buttons, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
+				cancel()
 				goto ERR
 			}
 		} else {
-			if err = chromedp.Run(timeoutCtx, chromedp.Click(job.Paginator.Css, chromedp.ByQuery)); err != nil {
+			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Paginator.Css, &buttons, chromedp.ByQuery)); err != nil {
+				cancel()
 				goto ERR
 			}
 		}
+		cancel()
+		if len(buttons) > 0 {
+			nextPageBtn := buttons[0]
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
+				cancel()
+				goto ERR
+			}
+			cancel()
+		}
 		time.Sleep(conf.Timeout)
+		pageNo++
+		if r.conf.Debug {
+			if err = screenshot(ctx, out, pageNo); err != nil {
+				return errors.Wrap(err, "")
+			}
+		}
 		if ret, nextPageUrl, err = r.extract(ctx, job, conf); err != nil {
 			goto ERR
 		}
-		pageNo++
 		if abort = callback(ret, nextPageUrl, pageNo); abort {
 			goto END
 		}
-		cancel()
-
 		r.sleep(conf)
 		continue
 
 	END:
-		cancel()
 		return nil
 	ERR:
-		cancel()
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil
 		}
