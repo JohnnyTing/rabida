@@ -43,7 +43,6 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		ret         []interface{}
 		nextPageUrl string
 		pageNo      int
-		cancel      context.CancelFunc
 		timeoutCtx  context.Context
 		out         string
 	)
@@ -68,11 +67,15 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		if conf.Mode == "headless" {
 			opts = append(opts, chromedp.Headless)
 		}
-		ctx, cancel = chromedp.NewExecAllocator(ctx, opts...)
-		defer cancel()
+		var (
+			allocCancel   context.CancelFunc
+			contextCancel context.CancelFunc
+		)
+		ctx, allocCancel = chromedp.NewExecAllocator(ctx, opts...)
+		defer allocCancel()
 
-		ctx, cancel = chromedp.NewContext(ctx)
-		defer cancel()
+		ctx, contextCancel = chromedp.NewContext(ctx)
+		defer contextCancel()
 	}
 
 	link := job.Link
@@ -121,8 +124,9 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		})
 	}
 
-	timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-	defer cancel()
+	var taskCancel context.CancelFunc
+	timeoutCtx, taskCancel = context.WithTimeout(ctx, conf.Timeout)
+	defer taskCancel()
 
 	if err = chromedp.Run(timeoutCtx, tasks); err != nil {
 		return errors.Wrap(err, "")
@@ -137,8 +141,9 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 				return errors.Wrap(err, "")
 			}
 		}
-		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-		defer cancel()
+		var cancel1 context.CancelFunc
+		timeoutCtx, cancel1 = context.WithTimeout(ctx, conf.Timeout)
+		defer cancel1()
 		var buttons []*cdp.Node
 		if father != nil {
 			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.StartPageBtn.Css, &buttons, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
@@ -151,8 +156,9 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		}
 		if len(buttons) > 0 {
 			nextPageBtn := buttons[0]
-			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
-			defer cancel()
+			var cancel2 context.CancelFunc
+			timeoutCtx, cancel2 = context.WithTimeout(ctx, conf.Timeout)
+			defer cancel2()
 			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
 				return errors.Wrap(err, "")
 			}
@@ -189,28 +195,30 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 				return errors.Wrap(err, "")
 			}
 		}
-		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+		var nodeCancel context.CancelFunc
+		timeoutCtx, nodeCancel = context.WithTimeout(ctx, conf.Timeout)
 		var buttons []*cdp.Node
 		if father != nil {
 			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Paginator.Css, &buttons, chromedp.ByQuery, chromedp.FromNode(father))); err != nil {
-				cancel()
+				nodeCancel()
 				goto ERR
 			}
 		} else {
 			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(job.Paginator.Css, &buttons, chromedp.ByQuery)); err != nil {
-				cancel()
+				nodeCancel()
 				goto ERR
 			}
 		}
-		cancel()
+		nodeCancel()
 		if len(buttons) > 0 {
 			nextPageBtn := buttons[0]
-			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			var jsClickCancel context.CancelFunc
+			timeoutCtx, jsClickCancel = context.WithTimeout(ctx, conf.Timeout)
 			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
-				cancel()
+				jsClickCancel()
 				goto ERR
 			}
-			cancel()
+			jsClickCancel()
 		}
 		time.Sleep(conf.Timeout)
 		pageNo++
@@ -282,8 +290,8 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	}
 	var nodes []*cdp.Node
 	if stringutils.IsNotEmpty(scope) {
-		timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
-		defer cancel()
+		timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+		defer nodeCancel()
 		if father != nil {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
 				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
@@ -299,7 +307,7 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
-			timeoutCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			timeoutCtx, attrCancel := context.WithTimeout(ctx, 100*time.Millisecond)
 			var value string
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if stringutils.IsEmpty(cssSelector.Css) {
@@ -343,7 +351,7 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 			if stringutils.IsNotEmpty(value) {
 				ret = append(ret, value)
 			}
-			cancel()
+			attrCancel()
 		} else {
 			data := make(map[string]interface{})
 			for attr, sel := range cssSelector.Attrs {
