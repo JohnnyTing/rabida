@@ -17,7 +17,9 @@ import (
 	"github.com/unionj-cloud/rabida/config"
 	"github.com/unionj-cloud/rabida/internal/lib"
 	"io/ioutil"
+	"log"
 	"path/filepath"
+	"reflect"
 	"time"
 )
 
@@ -25,33 +27,7 @@ type RabidaImpl struct {
 	conf *config.RabiConfig
 }
 
-func screenshot(ctx context.Context, out string, pageNo int) (err error) {
-	var buf []byte
-	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	if err = chromedp.Run(timeoutCtx, chromedp.FullScreenshot(&buf, 100)); err != nil {
-		return errors.Wrap(err, "")
-	}
-	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("screenshot_%d.png", pageNo)), buf, 0644); err != nil {
-		return errors.Wrap(err, "")
-	}
-	return nil
-}
-
-func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
-	var html string
-	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	if err = chromedp.Run(timeoutCtx, chromedp.OuterHTML("html", &html, chromedp.ByQuery)); err != nil {
-		return errors.Wrap(err, "")
-	}
-	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("index_%d.html", pageNo)), []byte(html), 0644); err != nil {
-		return errors.Wrap(err, "")
-	}
-	return nil
-}
-
-func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
+func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, confPtr *config.RabiConfig, options []chromedp.ExecAllocatorOption, listeners ...func(ev interface{})) error {
 	var (
 		err         error
 		abort       bool
@@ -60,7 +36,14 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		pageNo      int
 		timeoutCtx  context.Context
 		out         string
+		conf        config.RabiConfig
 	)
+
+	if confPtr != nil {
+		conf = *confPtr
+	} else {
+		conf = *r.conf
+	}
 
 	if r.conf.Debug {
 		out = r.conf.Out
@@ -113,7 +96,11 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		ctx, allocCancel = chromedp.NewExecAllocator(ctx, opts...)
 		defer allocCancel()
 
-		ctx, contextCancel = chromedp.NewContext(ctx)
+		if r.conf.Debug {
+			ctx, contextCancel = chromedp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
+		} else {
+			ctx, contextCancel = chromedp.NewContext(ctx)
+		}
 		defer contextCancel()
 	}
 
@@ -142,6 +129,10 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	tasks = nil
 	tasks = append(tasks, network.Enable(), lib.Navigate(link))
 	tasks = append(tasks, after...)
+
+	for _, fn := range listeners {
+		chromedp.ListenTarget(ctx, fn)
+	}
 
 	if r.conf.Debug {
 		chromedp.ListenTarget(ctx, func(event interface{}) {
@@ -220,7 +211,7 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		return errors.Wrap(err, "")
 	}
 
-	if abort = callback(ret, nextPageUrl, pageNo); abort {
+	if abort = callback(ctx, ret, nextPageUrl, pageNo); abort {
 		return nil
 	}
 
@@ -275,7 +266,7 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		if ret, nextPageUrl, err = r.extract(ctx, job, conf); err != nil {
 			goto ERR
 		}
-		if abort = callback(ret, nextPageUrl, pageNo); abort {
+		if abort = callback(ctx, ret, nextPageUrl, pageNo); abort {
 			goto END
 		}
 		r.sleep(conf)
@@ -289,6 +280,38 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 		}
 		return errors.Wrap(err, "")
 	}
+}
+
+func screenshot(ctx context.Context, out string, pageNo int) (err error) {
+	var buf []byte
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err = chromedp.Run(timeoutCtx, chromedp.FullScreenshot(&buf, 100)); err != nil {
+		return errors.Wrap(err, "")
+	}
+	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("screenshot_%d.png", pageNo)), buf, 0644); err != nil {
+		return errors.Wrap(err, "")
+	}
+	return nil
+}
+
+func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
+	var html string
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err = chromedp.Run(timeoutCtx, chromedp.OuterHTML("html", &html, chromedp.ByQuery)); err != nil {
+		return errors.Wrap(err, "")
+	}
+	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("index_%d.html", pageNo)), []byte(html), 0644); err != nil {
+		return errors.Wrap(err, "")
+	}
+	return nil
+}
+
+func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
+	return r.CrawlWithListeners(ctx, job, func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+		return callback(ret, nextPageUrl, currentPageNo)
+	}, before, after, &conf, options, nil)
 }
 
 func iframe(ctx context.Context, timeout time.Duration) (iframe *cdp.Node, err error) {
@@ -353,47 +376,63 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
 			timeoutCtx, attrCancel := context.WithTimeout(ctx, 100*time.Millisecond)
-			var value string
+			var value interface{}
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if stringutils.IsEmpty(cssSelector.Css) {
 					_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, "innerText", &value, chromedp.ByNodeID))
 				} else {
+					var stringValue string
 					var _nodes []*cdp.Node
 					_ = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector.Css, &_nodes, chromedp.ByQueryAll, chromedp.FromNode(node)))
 					for _, _node := range _nodes {
 						var temp string
 						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{_node.NodeID}, "innerText", &temp, chromedp.ByNodeID))
-						value += temp
+						stringValue += temp
 					}
+					value = stringValue
 				}
 			} else {
+				var stringValue string
 				if stringutils.IsEmpty(cssSelector.Css) {
 					if cssSelector.Attr == "outerHTML" {
-						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
+						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML([]cdp.NodeID{node.NodeID}, &stringValue, chromedp.ByNodeID))
+						value = stringValue
 					} else if cssSelector.Attr == "innerHTML" {
-						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML([]cdp.NodeID{node.NodeID}, &value, chromedp.ByNodeID))
+						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML([]cdp.NodeID{node.NodeID}, &stringValue, chromedp.ByNodeID))
+						value = stringValue
+					} else if cssSelector.Attr == "node" {
+						value = node
 					} else {
 						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{node.NodeID}, cssSelector.Attr, &value, chromedp.ByNodeID))
 					}
 				} else {
 					if cssSelector.Attr == "outerHTML" {
-						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
+						_ = chromedp.Run(timeoutCtx, chromedp.OuterHTML(cssSelector.Css, &stringValue, chromedp.ByQuery, chromedp.FromNode(node)))
+						value = stringValue
 					} else if cssSelector.Attr == "innerHTML" {
-						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML(cssSelector.Css, &value, chromedp.ByQuery, chromedp.FromNode(node)))
+						_ = chromedp.Run(timeoutCtx, chromedp.InnerHTML(cssSelector.Css, &stringValue, chromedp.ByQuery, chromedp.FromNode(node)))
+						value = stringValue
 					} else if cssSelector.Attr == "innerText" {
 						var _nodes []*cdp.Node
 						_ = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector.Css, &_nodes, chromedp.ByQueryAll, chromedp.FromNode(node)))
 						for _, _node := range _nodes {
 							var temp string
 							_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute([]cdp.NodeID{_node.NodeID}, "innerText", &temp, chromedp.ByNodeID))
-							value += temp
+							stringValue += temp
+						}
+						value = stringValue
+					} else if cssSelector.Attr == "node" {
+						var _nodes []*cdp.Node
+						_ = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector.Css, &_nodes, chromedp.ByQuery, chromedp.FromNode(node)))
+						if len(_nodes) > 0 {
+							value = _nodes[0]
 						}
 					} else {
 						_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(cssSelector.Css, cssSelector.Attr, &value, chromedp.ByQuery, chromedp.FromNode(node)))
 					}
 				}
 			}
-			if stringutils.IsNotEmpty(value) {
+			if value != nil && !reflect.ValueOf(value).IsZero() {
 				ret = append(ret, value)
 			}
 			attrCancel()
