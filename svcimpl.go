@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
 	"github.com/antchfx/htmlquery"
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
@@ -28,6 +29,120 @@ import (
 
 type RabidaImpl struct {
 	conf *config.RabiConfig
+}
+
+func (r RabidaImpl) DownloadFile(ctx context.Context, job Job, callback func(file string), confPtr *config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
+	var (
+		err  error
+		out  string
+		conf config.RabiConfig
+	)
+
+	if confPtr != nil {
+		conf = *confPtr
+	} else {
+		conf = *r.conf
+	}
+
+	if r.conf.Debug {
+		out = r.conf.Out
+		if out, err = pathutils.FixPath(out, ""); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if err = fileutils.CreateDirectory(out); err != nil {
+			return errors.Wrap(err, "")
+		}
+	}
+
+	if _ctx := chromedp.FromContext(ctx); _ctx == nil {
+		opts := []chromedp.ExecAllocatorOption{
+			chromedp.NoFirstRun,
+			chromedp.NoDefaultBrowserCheck,
+			chromedp.NoSandbox,
+			chromedp.DisableGPU,
+			chromedp.Flag("disable-web-security", true),
+			chromedp.Flag("disable-background-networking", true),
+			chromedp.Flag("enable-features", "NetworkService,NetworkServiceInProcess"),
+			chromedp.Flag("disable-background-timer-throttling", true),
+			chromedp.Flag("disable-backgrounding-occluded-windows", true),
+			chromedp.Flag("disable-breakpad", true),
+			chromedp.Flag("disable-client-side-phishing-detection", true),
+			chromedp.Flag("disable-default-apps", true),
+			chromedp.Flag("disable-dev-shm-usage", true),
+			chromedp.Flag("disable-extensions", true),
+			chromedp.Flag("disable-features", "site-per-process,Translate,BlinkGenPropertyTrees"),
+			chromedp.Flag("disable-hang-monitor", true),
+			chromedp.Flag("disable-ipc-flooding-protection", true),
+			chromedp.Flag("disable-popup-blocking", true),
+			chromedp.Flag("disable-prompt-on-repost", true),
+			chromedp.Flag("disable-renderer-backgrounding", true),
+			chromedp.Flag("disable-sync", true),
+			chromedp.Flag("force-color-profile", "srgb"),
+			chromedp.Flag("metrics-recording-only", true),
+			chromedp.Flag("safebrowsing-disable-auto-update", true),
+			chromedp.Flag("enable-automation", true),
+			chromedp.Flag("password-store", "basic"),
+			chromedp.Flag("use-mock-keychain", true),
+		}
+		opts = append(opts, options...)
+		if conf.Mode == "headless" {
+			opts = append(opts, chromedp.Headless)
+		}
+		var (
+			allocCancel   context.CancelFunc
+			contextCancel context.CancelFunc
+		)
+		ctx, allocCancel = chromedp.NewExecAllocator(ctx, opts...)
+		defer allocCancel()
+
+		if r.conf.Debug {
+			ctx, contextCancel = chromedp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
+		} else {
+			ctx, contextCancel = chromedp.NewContext(ctx)
+		}
+		defer contextCancel()
+	}
+
+	// set up a channel so we can block later while we monitor the download progress
+	downloadComplete := make(chan bool)
+
+	// this will be used to capture the file name later
+	var fileName string
+
+	// set up a listener to watch the download events and close the channel when complete
+	// this could be expanded to handle multiple downloads through creating a guid map,
+	// monitor download urls via EventDownloadWillBegin, etc
+	chromedp.ListenTarget(ctx, func(v interface{}) {
+		if ev, ok := v.(*browser.EventDownloadWillBegin); ok {
+			fileName = ev.SuggestedFilename
+			return
+		}
+		if ev, ok := v.(*browser.EventDownloadProgress); ok {
+			log.Printf("file %s current download state: %s\n", fileName, ev.State.String())
+			if ev.State == browser.DownloadProgressStateCompleted {
+				log.Printf("file %s download done\n", fileName)
+				close(downloadComplete)
+			}
+		}
+	})
+
+	if err = chromedp.Run(ctx,
+		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
+			WithDownloadPath(conf.Out).
+			WithEventsEnabled(true),
+		chromedp.Navigate(job.Link),
+	); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
+		// Note: Ignoring the net::ERR_ABORTED page error is essential here since downloads
+		// will cause this error to be emitted, although the download will still succeed.
+		return errors.Wrap(err, "")
+	}
+
+	// This will block until the chromedp listener closes the channel
+	<-downloadComplete
+
+	log.Printf("Download Complete: %s\n", filepath.Join(conf.Out, fileName))
+	callback(filepath.Join(conf.Out, fileName))
+	return nil
 }
 
 func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, confPtr *config.RabiConfig, options []chromedp.ExecAllocatorOption, listeners ...func(ev interface{})) error {
