@@ -249,9 +249,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	tasks = append(tasks, after...)
 
 	for _, fn := range listeners {
-		if fn != nil {
-			chromedp.ListenTarget(ctx, fn)
-		}
+		chromedp.ListenTarget(ctx, fn)
 	}
 
 	if r.conf.Debug {
@@ -339,7 +337,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		return nil
 	}
 
-	if stringutils.IsEmpty(job.Paginator.Css) {
+	if stringutils.IsEmpty(job.Paginator.Css) && stringutils.IsEmpty(job.Paginator.Xpath) {
 		return nil
 	}
 
