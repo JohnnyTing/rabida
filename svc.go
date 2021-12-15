@@ -67,4 +67,12 @@ type Rabida interface {
 		options []chromedp.ExecAllocatorOption,
 		listeners ...func(ev interface{}),
 	) error
+
+	DownloadFile(ctx context.Context, job Job,
+		// callback process result
+		// abort pagination if it returns true
+		callback func(file string),
+		confPtr *config.RabiConfig,
+		options ...chromedp.ExecAllocatorOption,
+	) error
 }
