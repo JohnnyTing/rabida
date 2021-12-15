@@ -15,7 +15,7 @@ import (
 	"github.com/unionj-cloud/go-doudou/pathutils"
 	"github.com/unionj-cloud/go-doudou/stringutils"
 	"github.com/unionj-cloud/rabida/config"
-	"github.com/unionj-cloud/rabida/internal/lib"
+	"github.com/unionj-cloud/rabida/lib"
 	"io/ioutil"
 	"log"
 	"path/filepath"

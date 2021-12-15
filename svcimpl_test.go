@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	_ "github.com/unionj-cloud/go-doudou/svc/config"
 	"github.com/unionj-cloud/rabida/config"
-	"github.com/unionj-cloud/rabida/internal/lib"
+	"github.com/unionj-cloud/rabida/lib"
 	"log"
 	"testing"
 	"time"
