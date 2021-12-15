@@ -311,7 +311,7 @@ func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
 func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
 	return r.CrawlWithListeners(ctx, job, func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		return callback(ret, nextPageUrl, currentPageNo)
-	}, before, after, &conf, options, nil)
+	}, before, after, &conf, options)
 }
 
 func iframe(ctx context.Context, timeout time.Duration) (iframe *cdp.Node, err error) {
