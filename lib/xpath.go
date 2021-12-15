@@ -20,7 +20,6 @@ func FindOne(node *html.Node, xpath string) string {
 }
 
 func XpathAttr(xpath string) (flag bool, attr string) {
-	//xpath := `//div[@id="indexCarousel"]//div[@class="item"]//img/@src`
 	flag = false
 	reg := regexp.MustCompile(`/@(\w+$)`)
 	if reg.MatchString(xpath) {
