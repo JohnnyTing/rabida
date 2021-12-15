@@ -242,3 +242,67 @@ func TestRabidaImpl_CrawlWithListeners(t *testing.T) {
 		panic(fmt.Sprintf("%+v", err))
 	}
 }
+
+func TestRabidaImpl_CrawlWithListeners2(t *testing.T) {
+	conf := config.LoadFromEnv()
+	fmt.Printf("%+v\n", conf)
+	rabi := NewRabida(conf)
+	job := Job{
+		Link: "http://mfb.sh.gov.cn/zwgk/jcgk/zcfg/gfxwj/index.html",
+		CssSelector: CssSelector{
+			Scope: `#Datatable-1>tbody>tr`,
+			Attrs: map[string]CssSelector{
+				"title": {
+					Css: "td:first-child",
+				},
+				"link": {
+					Css:  "td:first-child a",
+					Attr: "node",
+				},
+				"date": {
+					Css: "td:last-child>div>div",
+				},
+			},
+		},
+		Paginator: CssSelector{
+			Css: "button.btn-next>span",
+		},
+		Limit: 3,
+	}
+
+	linkCh := make(chan string, 1)
+	err := rabi.CrawlWithListeners(context.Background(), job, func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+		for _, item := range ret {
+			value, ok := item.(map[string]interface{})
+			if !ok {
+				panic(errors.New("cast failed"))
+			}
+			node := value["link"].(*cdp.Node)
+			timeoutCtx, jsClickCancel := context.WithTimeout(ctx, 10*time.Second)
+			err := chromedp.Run(timeoutCtx, lib.JsClickNode(node))
+			if err != nil {
+				jsClickCancel()
+				panic(err)
+			}
+			jsClickCancel()
+			link := <-linkCh
+			log.Println(link)
+		}
+		if currentPageNo >= job.Limit {
+			return true
+		}
+		return false
+	}, nil, []chromedp.Action{
+		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
+	}, nil,
+		[]chromedp.ExecAllocatorOption{chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36")},
+		func(v interface{}) {
+			if ev, ok := v.(*page.EventWindowOpen); ok {
+				linkCh <- ev.URL
+			}
+		},
+	)
+	if err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
+}
