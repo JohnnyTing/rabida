@@ -17,6 +17,12 @@ type CssSelector struct {
 	Attrs map[string]CssSelector
 	// Iframe if true, we will look for the element(s) within the first iframe in the page
 	Iframe bool
+	// XpathScope Note: only choose one between xpath and css selector
+	XpathScope string
+	// Xpath xpath expression
+	// eg: //*[@id="zz"]/div[2]/ul/li[1]/text()
+	// eg: //div[@id="indexCarousel"]//div[@class="item"]//img/@src
+	Xpath string
 }
 
 type Job struct {

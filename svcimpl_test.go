@@ -9,6 +9,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	_ "github.com/unionj-cloud/go-doudou/svc/config"
 	"github.com/unionj-cloud/rabida/config"
 	"github.com/unionj-cloud/rabida/lib"
@@ -49,6 +50,55 @@ func TestRabidaImpl_Crawl(t *testing.T) {
 		for _, item := range ret {
 			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
 		}
+		if currentPageNo >= job.Limit {
+			return true
+		}
+		return false
+	}, nil, []chromedp.Action{
+		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
+	})
+	if err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
+}
+
+func TestRabidaXpathImpl_Crawl(t *testing.T) {
+	conf := config.LoadFromEnv()
+	fmt.Printf("%+v\n", conf)
+
+	rabi := NewRabida(conf)
+	job := Job{
+		Link: "http://dpc.wuxi.gov.cn/hdjl/dczj/index.shtml#",
+		CssSelector: CssSelector{
+			//Scope: `#zz > div`,
+			XpathScope: `//*[@id="zz"]/div`,
+			Attrs: map[string]CssSelector{
+				"title": {
+					//Css: "dl > dt > a",
+					Xpath: "/dl/dt/a",
+				},
+				"link": {
+					//Css:  "dl > dt > a",
+					//Attr: "href",
+					Xpath: `/dl/dt/a/@href`,
+				},
+				"date": {
+					//Css: "ul > li:nth-child(1)",
+					Xpath: `/ul/li[1]/text()[1]`,
+				},
+			},
+		},
+		Paginator: CssSelector{
+			//Css: "a.next",
+			//Xpath: "",
+		},
+		Limit: 10,
+	}
+	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+		for _, item := range ret {
+			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+		}
+		logrus.Printf("currentPageNo: %d\n", currentPageNo)
 		if currentPageNo >= job.Limit {
 			return true
 		}
