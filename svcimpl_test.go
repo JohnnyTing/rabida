@@ -67,27 +67,24 @@ func TestRabidaImplPrePaginate_Crawl(t *testing.T) {
 	fmt.Printf("%+v\n", conf)
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "https://www.ly.com/hotel/hotellist?pageSize=20&t=1639734875471&city=119&inDate=2021-12-28&outDate=2021-12-29&filterList=8888_1&pageIndex=1",
-		//PrePaginate: EventSelector{
-		//	Type: ClickEvent,
-		//	Selector: CssSelector{
-		//		Css: "#hotel-page > div > div.filterBox.mb20 > dl.filterClass.star > dd > div > ul > li:nth-child(4) > span",
-		//	},
-		//},
+		Link: "https://hotel.meituan.com/tongrendiqu/",
+		PrePaginate: EventSelector{
+			Type: ClickEvent,
+			Selector: CssSelector{
+				Css: "#app > section > section > div.search-filter > div:nth-child(2) > div > div.search-row-content > span:nth-child(4) > a > label",
+			},
+		},
 		CssSelector: CssSelector{
-			Scope: `#hotel-page > div.list.main-wrap > div.hotelMain.mb30.clearfix > div.fl > div.hotelList.mb30 > ul > li`,
+			Scope: `#list-view > div.poi-results > article`,
 			Attrs: map[string]CssSelector{
 				"title": {
-					Css: "div.hotelMsg > p.hotelName > a > span.name",
+					Css: "div.info-wrapper > h3 > a",
 				},
 				"link": {
-					Css:  "div.hotelMsg > p.hotelName > a",
+					Css:  "div.info-wrapper > h3 > a",
 					Attr: "href",
 				},
 			},
-		},
-		Paginator: CssSelector{
-			Css: "#hotel-page > div.list.main-wrap > div.hotelMain.mb30.clearfix > div.fl > div.pagination > a:last-child",
 		},
 		Limit: 10,
 	}

@@ -329,7 +329,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			switch job.PrePaginate.Type {
 			case ClickEvent:
 				if err = chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
-					return errors.Wrap(err, "")
+					return errors.Wrap(err, "PrePaginate Error")
 				}
 			}
 		}
@@ -518,7 +518,7 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
-			timeoutCtx, attrCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			timeoutCtx, attrCancel := context.WithTimeout(ctx, conf.Timeout)
 			var value interface{}
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if stringutils.IsEmpty(cssSelector.Css) {
