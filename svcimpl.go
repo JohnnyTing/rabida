@@ -318,21 +318,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		time.Sleep(conf.Timeout)
 	}
 
-	if stringutils.IsNotEmpty(string(job.PrePaginate.Type)) {
-		timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
-		defer nodeCancel()
-		prePaginateSelector := job.PrePaginate.Selector.Css
-		if stringutils.IsEmpty(prePaginateSelector) {
-			prePaginateSelector = job.PrePaginate.Selector.Xpath
-		}
-		if stringutils.IsNotEmpty(prePaginateSelector) {
-			switch job.PrePaginate.Type {
-			case ClickEvent:
-				if err = chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
-					return errors.Wrap(err, "PrePaginate Error")
-				}
-			}
-		}
+	if err = prePaginate(ctx, job, conf); err != nil {
+		return err
 	}
 
 	pageNo++
@@ -447,6 +434,26 @@ func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
 	}
 	if err = ioutil.WriteFile(filepath.Join(out, fmt.Sprintf("index_%d.html", pageNo)), []byte(html), 0644); err != nil {
 		return errors.Wrap(err, "")
+	}
+	return nil
+}
+
+func prePaginate(ctx context.Context, job Job, conf config.RabiConfig) error {
+	if stringutils.IsNotEmpty(string(job.PrePaginate.Type)) {
+		timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+		defer nodeCancel()
+		prePaginateSelector := job.PrePaginate.Selector.Css
+		if stringutils.IsEmpty(prePaginateSelector) {
+			prePaginateSelector = job.PrePaginate.Selector.Xpath
+		}
+		if stringutils.IsNotEmpty(prePaginateSelector) {
+			switch job.PrePaginate.Type {
+			case ClickEvent:
+				if err := chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
+					return errors.Wrap(err, "PrePaginate Error")
+				}
+			}
+		}
 	}
 	return nil
 }

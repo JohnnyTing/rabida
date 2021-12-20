@@ -86,6 +86,9 @@ func TestRabidaImplPrePaginate_Crawl(t *testing.T) {
 				},
 			},
 		},
+		//Paginator: CssSelector{
+		//	Css: "#app > section > div > div.content-view > div.list-page-view > div > ul > li.next > a",
+		//},
 		Limit: 10,
 	}
 	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
