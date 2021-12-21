@@ -318,6 +318,10 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		time.Sleep(conf.Timeout)
 	}
 
+	if err = prePaginate(ctx, job, conf); err != nil {
+		return err
+	}
+
 	pageNo++
 	if r.conf.Debug {
 		if err = screenshot(ctx, out, pageNo); err != nil {
@@ -434,6 +438,26 @@ func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
 	return nil
 }
 
+func prePaginate(ctx context.Context, job Job, conf config.RabiConfig) error {
+	if stringutils.IsNotEmpty(string(job.PrePaginate.Type)) {
+		timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+		defer nodeCancel()
+		prePaginateSelector := job.PrePaginate.Selector.Css
+		if stringutils.IsEmpty(prePaginateSelector) {
+			prePaginateSelector = job.PrePaginate.Selector.Xpath
+		}
+		if stringutils.IsNotEmpty(prePaginateSelector) {
+			switch job.PrePaginate.Type {
+			case ClickEvent:
+				if err := chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
+					return errors.Wrap(err, "PrePaginate Error")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
 	return r.CrawlWithListeners(ctx, job, func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		return callback(ret, nextPageUrl, currentPageNo)
@@ -501,7 +525,7 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
-			timeoutCtx, attrCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			timeoutCtx, attrCancel := context.WithTimeout(ctx, conf.Timeout)
 			var value interface{}
 			if stringutils.IsEmpty(cssSelector.Attr) {
 				if stringutils.IsEmpty(cssSelector.Css) {

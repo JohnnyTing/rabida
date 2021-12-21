@@ -62,6 +62,51 @@ func TestRabidaImpl_Crawl(t *testing.T) {
 	}
 }
 
+func TestRabidaImplPrePaginate_Crawl(t *testing.T) {
+	conf := config.LoadFromEnv()
+	fmt.Printf("%+v\n", conf)
+	rabi := NewRabida(conf)
+	job := Job{
+		Link: "https://hotel.meituan.com/tongrendiqu/",
+		PrePaginate: EventSelector{
+			Type: ClickEvent,
+			Selector: CssSelector{
+				Css: "#app > section > section > div.search-filter > div:nth-child(2) > div > div.search-row-content > span:nth-child(4) > a > label",
+			},
+		},
+		CssSelector: CssSelector{
+			Scope: `#list-view > div.poi-results > article`,
+			Attrs: map[string]CssSelector{
+				"title": {
+					Css: "div.info-wrapper > h3 > a",
+				},
+				"link": {
+					Css:  "div.info-wrapper > h3 > a",
+					Attr: "href",
+				},
+			},
+		},
+		//Paginator: CssSelector{
+		//	Css: "#app > section > div > div.content-view > div.list-page-view > div > ul > li.next > a",
+		//},
+		Limit: 10,
+	}
+	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+		for _, item := range ret {
+			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+		}
+		if currentPageNo >= job.Limit {
+			return true
+		}
+		return false
+	}, nil, []chromedp.Action{
+		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
+	})
+	if err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
+}
+
 func TestRabidaXpathImpl_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)

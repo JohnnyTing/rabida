@@ -30,6 +30,8 @@ type Job struct {
 	Link string
 	// CssSelector root css selector
 	CssSelector CssSelector
+	// PrePaginate do something before paginate
+	PrePaginate EventSelector
 	// Paginator css selector for next page
 	Paginator CssSelector
 	// Limit limits how many pages should be crawled
@@ -37,6 +39,17 @@ type Job struct {
 	StartPageBtn CssSelector
 	StartPageUrl string
 }
+
+type EventSelector struct {
+	Type     Event
+	Selector CssSelector
+}
+
+type Event string
+
+const (
+	ClickEvent Event = "click"
+)
 
 type Rabida interface {
 	Crawl(ctx context.Context, job Job,
