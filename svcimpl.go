@@ -137,8 +137,11 @@ func (r RabidaImpl) DownloadFile(ctx context.Context, job Job, callback func(fil
 		return errors.Wrap(err, "")
 	}
 
-	// This will block until the chromedp listener closes the channel
-	<-downloadComplete
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-downloadComplete:
+	}
 
 	log.Printf("Download Complete: %s\n", filepath.Join(conf.Out, fileName))
 	callback(filepath.Join(conf.Out, fileName))
