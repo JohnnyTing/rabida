@@ -22,7 +22,8 @@ type CssSelector struct {
 	// Xpath xpath expression
 	// eg: //*[@id="zz"]/div[2]/ul/li[1]/text()
 	// eg: //div[@id="indexCarousel"]//div[@class="item"]//img/@src
-	Xpath string
+	Xpath    string
+	SetAttrs []SetAttribute
 }
 
 type Job struct {
@@ -53,10 +54,16 @@ type HttpCookies struct {
 	Expires int
 }
 
+type SetAttribute struct {
+	AttributeName  string
+	AttributeValue string
+}
+
 type Event string
 
 const (
-	ClickEvent Event = "click"
+	ClickEvent              Event = "click"
+	SetAttributesValueEvent Event = "setAttributesValue"
 )
 
 type Rabida interface {

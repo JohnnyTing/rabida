@@ -460,7 +460,15 @@ func prePaginate(ctx context.Context, job Job, conf config.RabiConfig) error {
 				switch event.Type {
 				case ClickEvent:
 					if err := chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
-						return errors.Wrap(err, "PrePaginate Error")
+						return errors.Wrap(err, "PrePaginate Click Error")
+					}
+				case SetAttributesValueEvent:
+					for _, setAttr := range event.Selector.SetAttrs {
+						timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+						defer nodeCancel()
+						if err := chromedp.Run(timeoutCtx, chromedp.SetAttributeValue(prePaginateSelector, setAttr.AttributeName, setAttr.AttributeValue)); err != nil {
+							return errors.Wrap(err, "PrePaginate SetAttributesValue Error")
+						}
 					}
 				}
 			}
