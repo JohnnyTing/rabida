@@ -31,18 +31,26 @@ type Job struct {
 	// CssSelector root css selector
 	CssSelector CssSelector
 	// PrePaginate do something before paginate
-	PrePaginate EventSelector
+	PrePaginate []EventSelector
 	// Paginator css selector for next page
 	Paginator CssSelector
 	// Limit limits how many pages should be crawled
-	Limit        int
-	StartPageBtn CssSelector
-	StartPageUrl string
+	Limit         int
+	StartPageBtn  CssSelector
+	StartPageUrl  string
+	EnableCookies HttpCookies
 }
 
 type EventSelector struct {
 	Type     Event
 	Selector CssSelector
+}
+
+type HttpCookies struct {
+	RawCookies string
+	Domain     string
+	// Expires hour, default 1 year
+	Expires int
 }
 
 type Event string
