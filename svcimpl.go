@@ -473,8 +473,15 @@ func prePaginate(ctx context.Context, job Job, conf config.RabiConfig) error {
 				}
 			}
 		}
-
 	}
+	var s time.Duration
+	if len(conf.Delay) > 1 {
+		s = lib.RandDuration(conf.Delay[0], conf.Delay[1])
+	} else {
+		s = conf.Delay[0]
+	}
+	logrus.Infof("prePaginate sleep %s \n", s.String())
+	time.Sleep(s)
 	return nil
 }
 
