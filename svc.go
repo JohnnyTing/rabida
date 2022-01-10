@@ -24,6 +24,8 @@ type CssSelector struct {
 	// eg: //div[@id="indexCarousel"]//div[@class="item"]//img/@src
 	Xpath    string
 	SetAttrs []SetAttribute
+	// Before dosomething before retrieve value
+	Before []EventSelector
 }
 
 type Job struct {
@@ -43,8 +45,9 @@ type Job struct {
 }
 
 type EventSelector struct {
-	Type     Event
-	Selector CssSelector
+	Type      Event
+	Condition Condition
+	Selector  CssSelector
 }
 
 type HttpCookies struct {
@@ -59,11 +62,23 @@ type SetAttribute struct {
 	AttributeValue string
 }
 
+type Condition struct {
+	Value        string
+	CheckFunc    func(text, value string) bool
+	ExecSelector ExecSelector
+}
+
+type ExecSelector struct {
+	Type     Event
+	Selector CssSelector
+}
+
 type Event string
 
 const (
 	ClickEvent              Event = "click"
 	SetAttributesValueEvent Event = "setAttributesValue"
+	TextEvent               Event = "getTextValue"
 )
 
 type Rabida interface {
