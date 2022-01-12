@@ -249,6 +249,9 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 
 	tasks = nil
 	tasks = append(tasks, network.Enable(), lib.Navigate(link))
+	if stringutils.IsNotEmpty(job.EnableCookies.RawCookies) {
+		tasks = append(tasks, lib.CookieAction(job.EnableCookies.RawCookies, job.EnableCookies.Domain, job.EnableCookies.Expires))
+	}
 	tasks = append(tasks, after...)
 
 	for _, fn := range listeners {
@@ -442,23 +445,89 @@ func writeHtml(ctx context.Context, out string, pageNo int) (err error) {
 }
 
 func prePaginate(ctx context.Context, job Job, conf config.RabiConfig) error {
-	if stringutils.IsNotEmpty(string(job.PrePaginate.Type)) {
-		timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
-		defer nodeCancel()
-		prePaginateSelector := job.PrePaginate.Selector.Css
-		if stringutils.IsEmpty(prePaginateSelector) {
-			prePaginateSelector = job.PrePaginate.Selector.Xpath
-		}
-		if stringutils.IsNotEmpty(prePaginateSelector) {
-			switch job.PrePaginate.Type {
-			case ClickEvent:
-				if err := chromedp.Run(timeoutCtx, chromedp.Click(prePaginateSelector, chromedp.BySearch)); err != nil {
-					return errors.Wrap(err, "PrePaginate Error")
+	return doSomethingBefore(ctx, conf, job.PrePaginate, nil)
+}
+
+func CssOrXpath(cssSelector CssSelector) string {
+	if stringutils.IsNotEmpty(cssSelector.Css) {
+		return cssSelector.Css
+	}
+	return cssSelector.Xpath
+}
+
+func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []EventSelector, node *cdp.Node) error {
+	if len(events) == 0 {
+		return nil
+	}
+	var queryActions []chromedp.QueryOption
+	// xpath expr is invalid: chromedp.BySearch
+	queryActions = append(queryActions, chromedp.ByQuery)
+	if node != nil {
+		queryActions = append(queryActions, chromedp.FromNode(node))
+	}
+	for _, event := range events {
+		if stringutils.IsNotEmpty(string(event.Type)) {
+			timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+			defer nodeCancel()
+			preSelectors := CssOrXpath(event.Selector)
+			if stringutils.IsNotEmpty(preSelectors) {
+				switch event.Type {
+				case ClickEvent:
+					flag, err := ExecEventCondition(ctx, conf, event, queryActions)
+					if err != nil {
+						return errors.Wrap(err, "event exc condition Error")
+					}
+					if flag {
+						if err := chromedp.Run(timeoutCtx, chromedp.Click(preSelectors, queryActions...)); err != nil {
+							return errors.Wrap(err, "event before Click Error")
+						}
+					}
+				case SetAttributesValueEvent:
+					flag, err := ExecEventCondition(ctx, conf, event, queryActions)
+					if err != nil {
+						return errors.Wrap(err, "event exc condition Error")
+					}
+					if flag {
+						for _, setAttr := range event.Selector.SetAttrs {
+							timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+							defer nodeCancel()
+							if err := chromedp.Run(timeoutCtx, chromedp.SetAttributeValue(preSelectors, setAttr.AttributeName, setAttr.AttributeValue, queryActions...)); err != nil {
+								return errors.Wrap(err, "event before SetAttributesValue Error")
+							}
+						}
+					}
 				}
 			}
 		}
 	}
+	var s time.Duration
+	if len(conf.Delay) > 1 {
+		s = lib.RandDuration(conf.Delay[0], conf.Delay[1])
+	} else {
+		s = conf.Delay[0]
+	}
+	logrus.Infof("preprocess sleep %s \n", s.String())
+	time.Sleep(s)
 	return nil
+}
+
+func ExecEventCondition(ctx context.Context, conf config.RabiConfig, event EventSelector, queryActions []chromedp.QueryOption) (bool, error) {
+	if stringutils.IsNotEmpty(event.Condition.Value) {
+		conditionCss := CssOrXpath(event.Condition.ExecSelector.Selector)
+		conditionTimeoutCtx, conditionCancel := context.WithTimeout(ctx, conf.Timeout)
+		defer conditionCancel()
+		switch event.Condition.ExecSelector.Type {
+		case TextEvent:
+			var text string
+			if err := chromedp.Run(conditionTimeoutCtx, chromedp.Text(conditionCss, &text, queryActions...)); err != nil {
+				return false, errors.Wrap(err, "event condition before Text Error")
+			}
+			value := event.Condition.Value
+			rs := event.Condition.CheckFunc(text, value)
+			return rs, nil
+		}
+	}
+	return true, nil
 }
 
 func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, conf config.RabiConfig, options ...chromedp.ExecAllocatorOption) error {
@@ -528,6 +597,10 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 	var ret []interface{}
 	for _, node := range nodes {
 		if cssSelector.Attrs == nil {
+			err := doSomethingBefore(ctx, conf, cssSelector.Before, node)
+			if err != nil {
+				panic(err)
+			}
 			timeoutCtx, attrCancel := context.WithTimeout(ctx, conf.Timeout)
 			var value interface{}
 			if stringutils.IsEmpty(cssSelector.Attr) {

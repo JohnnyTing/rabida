@@ -22,7 +22,10 @@ type CssSelector struct {
 	// Xpath xpath expression
 	// eg: //*[@id="zz"]/div[2]/ul/li[1]/text()
 	// eg: //div[@id="indexCarousel"]//div[@class="item"]//img/@src
-	Xpath string
+	Xpath    string
+	SetAttrs []SetAttribute
+	// Before dosomething before retrieve value
+	Before []EventSelector
 }
 
 type Job struct {
@@ -31,16 +34,41 @@ type Job struct {
 	// CssSelector root css selector
 	CssSelector CssSelector
 	// PrePaginate do something before paginate
-	PrePaginate EventSelector
+	PrePaginate []EventSelector
 	// Paginator css selector for next page
 	Paginator CssSelector
 	// Limit limits how many pages should be crawled
-	Limit        int
-	StartPageBtn CssSelector
-	StartPageUrl string
+	Limit         int
+	StartPageBtn  CssSelector
+	StartPageUrl  string
+	EnableCookies HttpCookies
 }
 
 type EventSelector struct {
+	Type      Event
+	Condition Condition
+	Selector  CssSelector
+}
+
+type HttpCookies struct {
+	RawCookies string
+	Domain     string
+	// Expires hour, default 1 year
+	Expires int
+}
+
+type SetAttribute struct {
+	AttributeName  string
+	AttributeValue string
+}
+
+type Condition struct {
+	Value        string
+	CheckFunc    func(text, value string) bool
+	ExecSelector ExecSelector
+}
+
+type ExecSelector struct {
 	Type     Event
 	Selector CssSelector
 }
@@ -48,7 +76,9 @@ type EventSelector struct {
 type Event string
 
 const (
-	ClickEvent Event = "click"
+	ClickEvent              Event = "click"
+	SetAttributesValueEvent Event = "setAttributesValue"
+	TextEvent               Event = "getTextValue"
 )
 
 type Rabida interface {
