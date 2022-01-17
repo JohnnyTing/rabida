@@ -467,6 +467,7 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 	}
 	for _, event := range events {
 		if stringutils.IsNotEmpty(string(event.Type)) {
+			DelaySleep(conf, "preprocess")
 			timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
 			defer nodeCancel()
 			preSelectors := CssOrXpath(event.Selector)
@@ -500,14 +501,6 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 			}
 		}
 	}
-	var s time.Duration
-	if len(conf.Delay) > 1 {
-		s = lib.RandDuration(conf.Delay[0], conf.Delay[1])
-	} else {
-		s = conf.Delay[0]
-	}
-	logrus.Infof("preprocess sleep %s \n", s.String())
-	time.Sleep(s)
 	return nil
 }
 
@@ -550,13 +543,18 @@ func iframe(ctx context.Context, timeout time.Duration) (iframe *cdp.Node, err e
 }
 
 func (r RabidaImpl) sleep(conf config.RabiConfig) {
+	DelaySleep(conf, "crawl next page")
+}
+
+func DelaySleep(conf config.RabiConfig, tag string) {
 	var s time.Duration
 	if len(conf.Delay) > 1 {
 		s = lib.RandDuration(conf.Delay[0], conf.Delay[1])
 	} else {
 		s = conf.Delay[0]
 	}
-	logrus.Infof("sleep %s to crawl next page\n", s.String())
+	logrus.Infof("\n delay sleep %s, tag: ", s.String())
+	logrus.Infoln(tag)
 	time.Sleep(s)
 }
 
