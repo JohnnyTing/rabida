@@ -553,8 +553,7 @@ func DelaySleep(conf config.RabiConfig, tag string) {
 	} else {
 		s = conf.Delay[0]
 	}
-	logrus.Infof("\n delay sleep %s, tag: ", s.String())
-	logrus.Infoln(tag)
+	logrus.Infof("\n delay sleep %s, tag: %s", s.String(), tag)
 	time.Sleep(s)
 }
 
