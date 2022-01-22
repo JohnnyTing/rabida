@@ -1,4 +1,4 @@
-module github.com/unionj-cloud/rabida
+module github.com/JohnnyTing/rabida
 
 go 1.16
 

@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
+	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/chromedp"
-	"github.com/unionj-cloud/rabida/config"
 )
 
 type CssSelector struct {
@@ -83,34 +83,34 @@ const (
 
 type Rabida interface {
 	Crawl(ctx context.Context, job Job,
-		// callback process result
-		// abort pagination if it returns true
+	// callback process result
+	// abort pagination if it returns true
 		callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool,
-		// actions before navigation
+	// actions before navigation
 		before []chromedp.Action,
-		// actions after navigation
+	// actions after navigation
 		after []chromedp.Action,
 	) error
 
 	CrawlWithConfig(ctx context.Context, job Job,
-		// callback process result
-		// abort pagination if it returns true
+	// callback process result
+	// abort pagination if it returns true
 		callback func(ret []interface{}, nextPageUrl string, currentPageNo int) bool,
-		// actions before navigation
+	// actions before navigation
 		before []chromedp.Action,
-		// actions after navigation
+	// actions after navigation
 		after []chromedp.Action,
 		conf config.RabiConfig,
 		options ...chromedp.ExecAllocatorOption,
 	) error
 
 	CrawlWithListeners(ctx context.Context, job Job,
-		// callback process result
-		// abort pagination if it returns true
+	// callback process result
+	// abort pagination if it returns true
 		callback func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool,
-		// actions before navigation
+	// actions before navigation
 		before []chromedp.Action,
-		// actions after navigation
+	// actions after navigation
 		after []chromedp.Action,
 		confPtr *config.RabiConfig,
 		options []chromedp.ExecAllocatorOption,
@@ -118,8 +118,8 @@ type Rabida interface {
 	) error
 
 	DownloadFile(ctx context.Context, job Job,
-		// callback process result
-		// abort pagination if it returns true
+	// callback process result
+	// abort pagination if it returns true
 		callback func(file string),
 		confPtr *config.RabiConfig,
 		options ...chromedp.ExecAllocatorOption,
