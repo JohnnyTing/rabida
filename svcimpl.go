@@ -286,7 +286,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		return errors.Wrap(err, "")
 	}
 
-	time.Sleep(conf.Timeout)
+	DelaySleep(conf, "start run")
 
 	startPageBtn := job.StartPageBtn.Css
 	if stringutils.IsEmpty(startPageBtn) {
@@ -321,7 +321,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 				return errors.Wrap(err, "")
 			}
 		}
-		time.Sleep(conf.Timeout)
+		DelaySleep(conf, "startPageBtn")
 	}
 
 	if err = prePaginate(ctx, job, conf); err != nil {
@@ -389,7 +389,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			}
 			jsClickCancel()
 		}
-		time.Sleep(conf.Timeout)
+		DelaySleep(conf, "click next page")
 		pageNo++
 		if r.conf.Debug {
 			if err = screenshot(ctx, out, pageNo); err != nil {
@@ -750,6 +750,7 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 		}
 	}
 
+	DelaySleep(conf, "populate")
 	if stringutils.IsNotEmpty(job.CssSelector.XpathScope) || stringutils.IsNotEmpty(job.CssSelector.Xpath) {
 		doc := r.Html(ctx, father, conf)
 		ret = r.populateX(ctx, job.CssSelector, conf, doc)
