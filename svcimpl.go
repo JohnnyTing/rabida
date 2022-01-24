@@ -480,7 +480,7 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 					}
 					if flag {
 						if err := chromedp.Run(timeoutCtx, chromedp.Click(preSelectors, queryActions...)); err != nil {
-							return errors.Wrap(err, "event before Click Error")
+							return errors.Wrap(err, fmt.Sprintf("event before Click Error: %s", preSelectors))
 						}
 					}
 				case SetAttributesValueEvent:
@@ -493,7 +493,7 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 							timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
 							defer nodeCancel()
 							if err := chromedp.Run(timeoutCtx, chromedp.SetAttributeValue(preSelectors, setAttr.AttributeName, setAttr.AttributeValue, queryActions...)); err != nil {
-								return errors.Wrap(err, "event before SetAttributesValue Error")
+								return errors.Wrap(err, fmt.Sprintf("event before SetAttributesValue Error: %s", preSelectors))
 							}
 						}
 					}
@@ -513,7 +513,7 @@ func ExecEventCondition(ctx context.Context, conf config.RabiConfig, event Event
 		case TextEvent:
 			var text string
 			if err := chromedp.Run(conditionTimeoutCtx, chromedp.Text(conditionCss, &text, queryActions...)); err != nil {
-				return false, errors.Wrap(err, "event condition before Text Error")
+				return false, errors.Wrap(err, fmt.Sprintf("event condition before Text Error: %s", conditionCss))
 			}
 			value := event.Condition.Value
 			rs := event.Condition.CheckFunc(text, value)
