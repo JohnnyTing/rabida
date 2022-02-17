@@ -788,6 +788,51 @@ func (r RabidaImpl) Html(ctx context.Context, father *cdp.Node, conf config.Rabi
 	return doc
 }
 
+func (r RabidaImpl) CrawlTraversal(ctx context.Context, conf *config.RabiConfig) error {
+	var err error
+	opts := append(chromedp.DefaultExecAllocatorOptions[:], chromedp.NoSandbox, chromedp.DisableGPU)
+	opts = append(opts, chromedp.Flag("headless", false))
+	actx, acancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer acancel()
+	ctx, cancel := chromedp.NewContext(actx)
+	defer cancel()
+
+	var tasks chromedp.Tasks
+	tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
+		var err error
+		_, err = page.AddScriptToEvaluateOnNewDocument(lib.Script).Do(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}))
+
+	link := "http://dpc.xm.gov.cn/xwdt/tzgg/"
+	tasks = append(tasks, network.Enable(), lib.Navigate(link))
+
+	if err = chromedp.Run(ctx, tasks); err != nil {
+		return errors.Wrap(err, "")
+	}
+
+	log.Println("wait 10s for loading all elements")
+	time.Sleep(10 * time.Second)
+
+	var nodes []*cdp.Node
+	if err := chromedp.Run(ctx, chromedp.Nodes("a", &nodes)); err != nil {
+		return errors.Wrap(err, "")
+	}
+	for _, node := range nodes {
+		href, ok := node.Attribute("href")
+		if ok && stringutils.IsNotEmpty(href) {
+			log.Println(href)
+		} else {
+			log.Println("not exist..")
+		}
+	}
+
+	return err
+}
+
 func NewRabida(conf *config.RabiConfig) Rabida {
 	return &RabidaImpl{
 		conf,

@@ -594,3 +594,13 @@ func TestRabidaImpl_DownloadFile(t *testing.T) {
 		panic(err)
 	}
 }
+
+func TestRabidaImpl_CrawlTraversal(t *testing.T) {
+	conf := config.LoadFromEnv()
+	fmt.Printf("%+v\n", conf)
+	rabi := NewRabida(conf)
+	err := rabi.CrawlTraversal(context.Background(), conf)
+	if err != nil {
+		panic(err)
+	}
+}
