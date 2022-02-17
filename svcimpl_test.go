@@ -12,7 +12,6 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	_ "github.com/unionj-cloud/go-doudou/svc/config"
 	"log"
 	"strings"
 	"testing"
