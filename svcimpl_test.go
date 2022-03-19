@@ -6,6 +6,7 @@ import (
 	"github.com/Jeffail/gabs/v2"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/JohnnyTing/rabida/lib"
+	"github.com/JohnnyTing/rabida/useragent"
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
@@ -601,5 +602,12 @@ func TestRabidaImpl_CrawlTraversal(t *testing.T) {
 	err := rabi.CrawlTraversal(context.Background(), conf)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func TestRandom_UA(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		ua := useragent.RandomMacUA()
+		log.Println(ua)
 	}
 }

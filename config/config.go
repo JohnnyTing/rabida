@@ -26,6 +26,8 @@ type RabiConfig struct {
 	Debug bool
 	// Out screenshot png files output path
 	Out string
+	// Strict useragent and platform be matched、 platform must not be linux etc..
+	Strict bool
 }
 
 func LoadFromEnv() *RabiConfig {

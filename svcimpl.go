@@ -6,6 +6,7 @@ import (
 	"github.com/Jeffail/gabs/v2"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/JohnnyTing/rabida/lib"
+	"github.com/JohnnyTing/rabida/useragent"
 	"github.com/antchfx/htmlquery"
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
@@ -206,6 +207,14 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			chromedp.Flag("password-store", "basic"),
 			chromedp.Flag("use-mock-keychain", true),
 		}
+		var userAgent string
+		if conf.Strict {
+			userAgent = useragent.RandomMacUA()
+		} else {
+			userAgent = useragent.RandomPcUA()
+		}
+		logrus.Infoln(userAgent)
+		opts = append(opts, chromedp.UserAgent(userAgent))
 		opts = append(opts, options...)
 		if conf.Mode == "headless" {
 			opts = append(opts, chromedp.Headless)
@@ -218,7 +227,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		defer allocCancel()
 
 		if r.conf.Debug {
-			ctx, contextCancel = chromedp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
+			//ctx, contextCancel = chromedp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
+			ctx, contextCancel = chromedp.NewContext(ctx)
 		} else {
 			ctx, contextCancel = chromedp.NewContext(ctx)
 		}
@@ -240,6 +250,17 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		}
 		return nil
 	}))
+
+	if conf.Strict {
+		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
+			var err error
+			_, err = page.AddScriptToEvaluateOnNewDocument(lib.MacPlatform).Do(ctx)
+			if err != nil {
+				return err
+			}
+			return nil
+		}))
+	}
 
 	tasks = append(tasks, before...)
 
@@ -288,6 +309,24 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	}
 
 	DelaySleep(conf, "start run")
+
+	if r.conf.Debug {
+		console := `console.log(navigator.platform, navigator.userAgent,navigator.webdriver,navigator.plugins.length,navigator.language,navigator.oscpu, navigator.productSub, eval.toString().length)`
+		timeoutCtx1, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		if err = chromedp.Run(timeoutCtx1, chromedp.EvaluateAsDevTools(console, nil)); err != nil {
+			return errors.Wrap(err, "")
+		}
+		chromedp.Sleep(10 * time.Second)
+		if err = screenshot(ctx, out, -1); err != nil {
+			return errors.Wrap(err, "")
+		}
+		if err = writeHtml(ctx, out, -1); err != nil {
+			return errors.Wrap(err, "")
+		}
+		logrus.Infoln("index html screenshot wait 10s")
+		time.Sleep(10 * time.Second)
+	}
 
 	startPageBtn := job.StartPageBtn.Css
 	if stringutils.IsEmpty(startPageBtn) {
