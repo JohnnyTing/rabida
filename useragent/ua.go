@@ -1,9 +1,8 @@
 package useragent
 
 import (
+	_ "embed"
 	"encoding/json"
-	"github.com/unionj-cloud/go-doudou/toolkit/pathutils"
-	"io/ioutil"
 )
 
 const (
@@ -20,21 +19,17 @@ const (
 	IPHONE = "iphone"
 	IPAD   = "ipad"
 
-	COMPUTER   = "computer"
-	MOBILE     = "mobile"
-	UaJsonPath = "fake_useragent_0.2.0.json"
+	COMPUTER = "computer"
+	MOBILE   = "mobile"
 )
 
+//go:embed fake_useragent_0.2.0.json
+var UaJsonBytes []byte
 var UserAgent map[string][]string
 var PcKeys []string
 
 func init() {
-	path := pathutils.Abs(UaJsonPath)
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	err = json.Unmarshal(bytes, &UserAgent)
+	err := json.Unmarshal(UaJsonBytes, &UserAgent)
 	if err != nil {
 		panic(err)
 	}
