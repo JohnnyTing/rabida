@@ -254,7 +254,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	if conf.Strict {
 		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error
-			_, err = page.AddScriptToEvaluateOnNewDocument(lib.MacPlatform).Do(ctx)
+			_, err = page.AddScriptToEvaluateOnNewDocument(lib.AntiDetectionJS).Do(ctx)
 			if err != nil {
 				return err
 			}
