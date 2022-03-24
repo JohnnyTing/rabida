@@ -5,7 +5,9 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+	"github.com/sirupsen/logrus"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -16,7 +18,10 @@ func HttpCookies(rawCookies string) []*http.Cookie {
 	return request.Cookies()
 }
 
-func CookieAction(rawCookies, domain string, expire int) chromedp.ActionFunc {
+func CookieAction(link, rawCookies string, expire int) chromedp.ActionFunc {
+	rs, _ := url.Parse(link)
+	domain := rs.Hostname()
+	logrus.Println(domain)
 	return func(ctx context.Context) (err error) {
 		// create cookie expiration
 		var duration time.Duration

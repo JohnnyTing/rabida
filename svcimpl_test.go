@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"log"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -601,5 +602,17 @@ func TestRabidaImpl_CrawlTraversal(t *testing.T) {
 	err := rabi.CrawlTraversal(context.Background(), conf)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func TestDomain(t *testing.T) {
+	links := []string{
+		"https://you.ctrip.com/sight/shenzhen26/1508552.html",
+		"https://hotels.ctrip.com/hotels/detailPage?hotelId=436458",
+	}
+	for _, link := range links {
+		rs, _ := url.Parse(link)
+		domain := rs.Hostname()
+		logrus.Println(domain)
 	}
 }

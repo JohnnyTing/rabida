@@ -271,7 +271,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	tasks = nil
 	tasks = append(tasks, network.Enable())
 	if stringutils.IsNotEmpty(job.EnableCookies.RawCookies) {
-		tasks = append(tasks, lib.CookieAction(job.EnableCookies.RawCookies, job.EnableCookies.Domain, job.EnableCookies.Expires))
+		tasks = append(tasks, lib.CookieAction(link, job.EnableCookies.RawCookies, job.EnableCookies.Expires))
 	}
 	tasks = append(tasks, lib.Navigate(link))
 	tasks = append(tasks, after...)
