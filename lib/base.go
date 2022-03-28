@@ -139,7 +139,11 @@ Object.defineProperty(n, 'deviceMemory', {
 });
 
 Object.defineProperty(n, 'language', {
-    get: () => "zh-CN",
+    get: () => "zh-CN"
+});
+
+Object.defineProperty(n, 'languages', {
+    get: () => ['zh-CN', 'zh', 'en']
 });
 
 Object.defineProperty(n, 'hardwareConcurrency', {
@@ -147,7 +151,7 @@ Object.defineProperty(n, 'hardwareConcurrency', {
 });
 
 Object.defineProperty(n, 'mimeTypes', {
-    get: () => [{'type':'application/pdf','suffixes':'pdf','description':'Portable DocumentFormat','enabledPlugin':''},{'type':'text/pdf','suffixes':'pdf','description':'Portable Document Format','enabledPlugin':'Plugin'}]
+    get: () => [{'type':'application/pdf','suffixes':'pdf','description':'Portable DocumentFormat','enabledPlugin':'Plugin'},{'type':'text/pdf','suffixes':'pdf','description':'Portable Document Format','enabledPlugin':'Plugin'}]
 });
 
 var inject = function () {
