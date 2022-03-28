@@ -14,9 +14,9 @@ func RandomPcUA() string {
 	return list[listIndex]
 }
 
-func RandomMacUA() string {
+func RandomMacChromeUA() string {
 	rand.Seed(time.Now().UnixNano())
-	list := UserAgent[MAC_OS_X]
+	list := UserAgent[CHROME_MAC]
 	listIndex := rand.Intn(len(list))
 	return list[listIndex]
 }

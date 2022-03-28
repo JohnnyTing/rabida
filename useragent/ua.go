@@ -7,6 +7,7 @@ import (
 
 const (
 	CHROME            = "chrome"
+	CHROME_MAC        = "chrome-mac"
 	INTERNET_EXPLORER = "internet-explorer"
 	FIREFOX           = "firefox"
 	SAFARI            = "safari"
