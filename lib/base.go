@@ -150,6 +150,10 @@ Object.defineProperty(n, 'hardwareConcurrency', {
     get: () => 8
 });
 
+})(window, navigator, window.navigator);`
+
+const extraJS = `(function(w, n, wn) {
+
 Object.defineProperty(n, 'mimeTypes', {
     get: () => [{'type':'application/pdf','suffixes':'pdf','description':'Portable DocumentFormat','enabledPlugin':'Plugin'},{'type':'text/pdf','suffixes':'pdf','description':'Portable Document Format','enabledPlugin':'Plugin'}]
 });
