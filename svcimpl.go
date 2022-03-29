@@ -219,6 +219,9 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		if conf.Mode == "headless" {
 			opts = append(opts, chromedp.Headless)
 		}
+		if stringutils.IsNotEmpty(conf.Proxy) {
+			opts = append(opts, chromedp.ProxyServer(conf.Proxy))
+		}
 		var (
 			allocCancel   context.CancelFunc
 			contextCancel context.CancelFunc

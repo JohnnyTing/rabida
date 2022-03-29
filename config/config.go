@@ -28,6 +28,8 @@ type RabiConfig struct {
 	Out string
 	// Strict useragent and platform be matched、 platform must not be linux etc..
 	Strict bool
+	//ProxyServer proxy server
+	Proxy string
 }
 
 func LoadFromEnv() *RabiConfig {
