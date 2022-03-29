@@ -9,7 +9,6 @@ import (
 type RabiConfig struct {
 	// Delay the next request between from and to milliseconds
 	// if only from is specified, delay exactly from milliseconds
-	// TODO
 	Delay []time.Duration `default:"1s"`
 	// Concurrency limits concurrency
 	// TODO
@@ -26,7 +25,7 @@ type RabiConfig struct {
 	Debug bool
 	// Out screenshot png files output path
 	Out string
-	// Strict useragent and platform be matched、 platform must not be linux etc..
+	// Strict useragent、browser、platform should be matched, platform should not be linux etc..
 	Strict bool
 	//ProxyServer proxy server
 	Proxy string
