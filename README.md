@@ -1,6 +1,6 @@
 ### Rabida 
 
-Rabida is simply crawler framework based on [chromedp]() .
+Rabida is simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
 
 ### Supported features
 
@@ -14,7 +14,24 @@ Rabida is simply crawler framework based on [chromedp]() .
 ### Install
 
 ```go
-go get -u https://github.com/JohnnyTing/rabida
+go get -u github.com/JohnnyTing/rabida
+```
+
+### Configuration
+
+ add  .env file for your project
+
+```shell
+RABI_DELAY=1s,2s
+RABI_CONCURRENCY=1
+RABI_THROTTLE_NUM=2
+RABI_THROTTLE_DURATION=1s
+RABI_TIMEOUT=3s
+RABI_MODE=headless
+RABI_DEBUG=false
+RABI_OUT=out
+RABI_STRICT=false
+RABI_PROXY=
 ```
 
 ### Usage
