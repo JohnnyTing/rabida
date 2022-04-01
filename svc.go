@@ -124,6 +124,4 @@ type Rabida interface {
 		confPtr *config.RabiConfig,
 		options ...chromedp.ExecAllocatorOption,
 	) error
-
-	CrawlTraversal(ctx context.Context, conf *config.RabiConfig) error
 }
