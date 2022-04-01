@@ -4,7 +4,6 @@ import (
 	"github.com/antchfx/htmlquery"
 	"golang.org/x/net/html"
 	"regexp"
-	"strings"
 )
 
 func FindOne(node *html.Node, xpath string) string {
@@ -28,12 +27,4 @@ func XpathAttr(xpath string) (flag bool, attr string) {
 		attr = submatch[1]
 	}
 	return
-}
-
-func ParseXpathAttr(xpath string) string {
-	if strings.Contains(xpath, "@") {
-		splits := strings.Split(xpath, "@")
-		return splits[len(splits)-1]
-	}
-	panic("can't reconized xpath attr")
 }
