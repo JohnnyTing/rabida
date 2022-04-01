@@ -1,6 +1,6 @@
 ### Rabida 
 
-Rabida is simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
+Rabida is a simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
 
 ### Supported features
 
