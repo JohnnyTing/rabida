@@ -651,15 +651,11 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 		defer nodeCancel()
 		if father != nil {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
-				scopeErr := fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope))
-				logrus.Error(scopeErr)
-				panic(scopeErr)
+				logrus.Error(fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope)))
 			}
 		} else {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
-				scopeErr := fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope))
-				logrus.Error(scopeErr)
-				panic(scopeErr)
+				logrus.Error(fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope)))
 			}
 		}
 	} else {
