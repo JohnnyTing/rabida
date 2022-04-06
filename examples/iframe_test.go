@@ -9,27 +9,36 @@ import (
 	"testing"
 )
 
-func TestRabidaCrawlCtrip(t *testing.T) {
+func TestRabidaCrawlIframe(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "https://you.ctrip.com/sight/shenzhen26/2778.html",
+		Link: "http://www.jinan.gov.cn/col/col27544/index.html",
 		CssSelector: CssSelector{
-			Scope: `#commentModule > div.commentList > div.commentItem`,
+			Scope:  "#searchform+table tr",
+			Iframe: true,
+			IframeSelector: &CssSelector{
+				Css: "#zpinfo003",
+			},
 			Attrs: map[string]CssSelector{
-				"content": {
-					Css: "div.contentInfo > div.commentDetail",
+				"title": {
+					Css:  "a",
+					Attr: "title",
 				},
 				"date": {
-					Css: "div.contentInfo > div.commentFooter > div.commentTime",
+					Css: "td:last-child>span",
+				},
+				"link": {
+					Css:  "a",
+					Attr: "href",
 				},
 			},
 		},
 		Paginator: CssSelector{
-			Css: "#commentModule > div.myPagination > ul > li.ant-pagination-next[aria-disabled='false']",
+			Css: "a.pgBtn:nth-child(3):not(.disabledTd)",
 		},
-		Limit: 5,
+		Limit: 3,
 	}
 	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {
@@ -45,37 +54,36 @@ func TestRabidaCrawlCtrip(t *testing.T) {
 	}
 }
 
-func TestRabidaCrawlCtripFromLatest(t *testing.T) {
+func TestRabidaCrawlIframe1(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 	rabi := NewRabida(conf)
-	var prePaginators []EventSelector
-	one := EventSelector{
-		Type: ClickEvent,
-		Selector: CssSelector{
-			Css: "#commentModule > div.sortList > span:nth-child(2)",
-		},
-	}
-	prePaginators = append(prePaginators, one)
-
 	job := Job{
-		Link:        "https://you.ctrip.com/sight/shenzhen26/2778.html",
-		PrePaginate: prePaginators,
+		Link: "http://www.suzhou.gov.cn/szsrmzf/zfxxgkzl/xxgkml.shtml?para=zcwj",
 		CssSelector: CssSelector{
-			Scope: `#commentModule > div.commentList > div.commentItem`,
+			Scope:  `body > form > table > tbody > tr`,
+			Iframe: true,
+			IframeSelector: &CssSelector{
+				Css: "#xxgk_item",
+			},
 			Attrs: map[string]CssSelector{
 				"content": {
-					Css: "div.contentInfo > div.commentDetail",
+					Css:  "a",
+					Attr: "title",
 				},
 				"date": {
-					Css: "div.contentInfo > div.commentFooter > div.commentTime",
+					Css: "td:last-child",
+				},
+				"link": {
+					Css:  "a",
+					Attr: "href",
 				},
 			},
 		},
 		Paginator: CssSelector{
-			Css: "#commentModule > div.myPagination > ul > li.ant-pagination-next[aria-disabled='false']",
+			Css: "//span[@class='upordown']/a[text()='下一页']",
 		},
-		Limit: 5,
+		Limit: 3,
 	}
 	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {

@@ -357,7 +357,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	if stringutils.IsNotEmpty(startPageBtn) {
 		var father *cdp.Node
 		if job.CssSelector.Iframe {
-			if father, err = iframe(ctx, conf.Timeout); err != nil {
+			if father, err = iframe(ctx, conf.Timeout, job); err != nil {
 				return errors.Wrap(err, "")
 			}
 		}
@@ -391,6 +391,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	}
 
 	pageNo++
+	logrus.Infof("\n current pageNo: %v \n", pageNo)
 	if r.conf.Debug {
 		if err = screenshot(ctx, out, pageNo); err != nil {
 			return errors.Wrap(err, "")
@@ -412,13 +413,12 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	if stringutils.IsEmpty(job.Paginator.Css) && stringutils.IsEmpty(job.Paginator.Xpath) {
 		return nil
 	}
-
 	r.sleep(conf)
 
 	for {
 		var father *cdp.Node
 		if job.CssSelector.Iframe {
-			if father, err = iframe(ctx, conf.Timeout); err != nil {
+			if father, err = iframe(ctx, conf.Timeout, job); err != nil {
 				return errors.Wrap(err, "")
 			}
 		}
@@ -453,6 +453,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		}
 		DelaySleep(conf, "click next page")
 		pageNo++
+		logrus.Infof("\n current pageNo: %v \n", pageNo)
 		if r.conf.Debug {
 			if err = screenshot(ctx, out, pageNo); err != nil {
 				return errors.Wrap(err, "")
@@ -591,12 +592,19 @@ func (r RabidaImpl) CrawlWithConfig(ctx context.Context, job Job, callback func(
 	}, before, after, &conf, options)
 }
 
-func iframe(ctx context.Context, timeout time.Duration) (iframe *cdp.Node, err error) {
+func iframe(ctx context.Context, timeout time.Duration, job Job) (iframe *cdp.Node, err error) {
+	var iframes []*cdp.Node
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	var iframes []*cdp.Node
-	if err = chromedp.Run(timeoutCtx, chromedp.Nodes("iframe", &iframes, chromedp.ByQuery)); err != nil {
-		return nil, errors.Wrap(err, "")
+	if job.CssSelector.IframeSelector != nil {
+		cssSelector := CssOrXpath(*job.CssSelector.IframeSelector)
+		if err = chromedp.Run(timeoutCtx, chromedp.Nodes(cssSelector, &iframes, chromedp.BySearch)); err != nil {
+			return nil, errors.Wrap(err, "iframe err")
+		}
+	} else {
+		if err = chromedp.Run(timeoutCtx, chromedp.Nodes("iframe", &iframes, chromedp.ByQuery)); err != nil {
+			return nil, errors.Wrap(err, "")
+		}
 	}
 	if len(iframes) > 0 {
 		iframe = iframes[0]
@@ -643,11 +651,15 @@ func (r RabidaImpl) populate(ctx context.Context, father *cdp.Node, cssSelector 
 		defer nodeCancel()
 		if father != nil {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
-				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
+				scopeErr := fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope))
+				logrus.Error(scopeErr)
+				panic(scopeErr)
 			}
 		} else {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
-				logrus.Error(fmt.Sprintf("%+v", errors.Wrap(ErrNotFound, scope)))
+				scopeErr := fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope))
+				logrus.Error(scopeErr)
+				panic(scopeErr)
 			}
 		}
 	} else {
@@ -807,7 +819,7 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 
 	var father *cdp.Node
 	if job.CssSelector.Iframe {
-		if father, err = iframe(ctx, conf.Timeout); err != nil {
+		if father, err = iframe(ctx, conf.Timeout, job); err != nil {
 			panic(errors.Wrap(err, ""))
 		}
 	}

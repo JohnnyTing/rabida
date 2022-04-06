@@ -9,7 +9,7 @@ import (
 type RabiConfig struct {
 	// Delay the next request between from and to milliseconds
 	// if only from is specified, delay exactly from milliseconds
-	Delay []time.Duration `default:"1s"`
+	Delay []time.Duration `default:"2s,3s"`
 	// Concurrency limits concurrency
 	// TODO
 	Concurrency int
