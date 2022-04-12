@@ -16,7 +16,7 @@ func TestRabidaImplOpenNewTab_Crawl(t *testing.T) {
 
 	rabi := service.NewRabida(conf)
 	job := service.Job{
-		Link: "http://www.shenyang.gov.cn/zwgk/zcwj/zfwj/index_1.html",
+		Link: "http://www.shenyang.gov.cn/zwgk/zcwj/zfwj/",
 		CssSelector: service.CssSelector{
 			Scope: `.list-sp .title_futi_time`,
 			Attrs: map[string]service.CssSelector{
@@ -35,7 +35,7 @@ func TestRabidaImplOpenNewTab_Crawl(t *testing.T) {
 		Paginator: service.CssSelector{
 			Css: ".fanye > a.h12:nth-last-child(4)",
 		},
-		Limit: 10,
+		Limit: 3,
 	}
 
 	opts := []chromedp.ExecAllocatorOption{

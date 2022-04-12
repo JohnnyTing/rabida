@@ -7,34 +7,37 @@ import (
 	service "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/chromedp"
+	_ "github.com/unionj-cloud/go-doudou/framework/http"
 	"testing"
 )
 
-func TestRabidaImplNextPage_Crawl(t *testing.T) {
+func TestRabidaImplDynamicNextPageBtn_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 
 	rabi := service.NewRabida(conf)
 	job := service.Job{
-		Link: "http://js.wuxi.gov.cn/zfxxgk/xxgkml/fgwjjjd/bmwj/index.shtml",
+		Link: "https://www.sjz.gov.cn/col/1596014942837/index.html",
 		CssSelector: service.CssSelector{
-			Scope: `#doclist>li`,
+			Scope: `.nr ul li`,
 			Attrs: map[string]service.CssSelector{
 				"title": {
-					Css:  "a",
+					Css:  "a:first-child",
 					Attr: "title",
 				},
 				"link": {
-					Css:  "a",
+					Css:  "a:first-child",
 					Attr: "href",
 				},
 				"date": {
-					Css: "span",
+					Css: "span.date",
 				},
 			},
 		},
-		Paginator: service.CssSelector{
-			Css: ".next",
+		PaginatorFunc: func(currentPageNo int) service.CssSelector {
+			return service.CssSelector{
+				Css: fmt.Sprintf(`.center #MinyooPage>a[title="当前在第%d页"]+a`, currentPageNo),
+			}
 		},
 		Limit: 3,
 	}
@@ -48,9 +51,7 @@ func TestRabidaImplNextPage_Crawl(t *testing.T) {
 		opts = append(opts, chromedp.Headless)
 	}
 
-	ctx := context.Background()
-
-	err := rabi.Crawl(ctx, job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {
 			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
 		}

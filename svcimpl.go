@@ -150,6 +150,19 @@ func (r RabidaImpl) DownloadFile(ctx context.Context, job Job, callback func(fil
 	return nil
 }
 
+func (r RabidaImpl) paginator(job Job, pageNo int) CssSelector {
+	p := job.Paginator
+	if job.PaginatorFunc != nil {
+		p = job.PaginatorFunc(pageNo)
+	}
+	selector := p.Css
+	if stringutils.IsEmpty(selector) {
+		selector = p.Xpath
+	}
+	logrus.Infof("next page button selector is %s\n", selector)
+	return p
+}
+
 func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, confPtr *config.RabiConfig, options []chromedp.ExecAllocatorOption, listeners ...func(ev interface{})) error {
 	var (
 		err         error
@@ -400,7 +413,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		}
 	}
 
-	ret, nextPageUrl, err = r.extract(ctx, job, conf)
+	ret, nextPageUrl, err = r.extract(ctx, job, pageNo, conf)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -409,7 +422,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		return nil
 	}
 
-	if stringutils.IsEmpty(job.Paginator.Css) && stringutils.IsEmpty(job.Paginator.Xpath) {
+	p := r.paginator(job, pageNo)
+	if stringutils.IsEmpty(p.Css) && stringutils.IsEmpty(p.Xpath) {
 		return nil
 	}
 	r.sleep(conf)
@@ -433,7 +447,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			})
 			var father *cdp.Node
 			var buttons []*cdp.Node
-			pagination := job.Paginator.Css
+			p = r.paginator(job, pageNo)
+			pagination := p.Css
 			if job.CssSelector.Iframe {
 				if father, err = iframe(newCtx, conf.Timeout, job); err != nil {
 					goto ERR
@@ -442,7 +457,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			timeoutCtx, cancel = context.WithTimeout(newCtx, conf.Timeout)
 			defer cancel()
 			if stringutils.IsEmpty(pagination) {
-				pagination = job.Paginator.Xpath
+				pagination = p.Xpath
 			}
 			if father != nil {
 				if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch, chromedp.FromNode(father))); err != nil {
@@ -477,7 +492,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 					goto ERR
 				}
 			}
-			if ret, nextPageUrl, err = r.extract(newCtx, job, conf); err != nil {
+			if ret, nextPageUrl, err = r.extract(newCtx, job, pageNo, conf); err != nil {
 				goto ERR
 			}
 			if abort = callback(newCtx, ret, nextPageUrl, pageNo); abort {
@@ -817,7 +832,7 @@ func retrieveByXpath(ctx context.Context, cssSelector CssSelector, html *html.No
 	return
 }
 
-func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig) (ret []interface{}, nextPageUrl string, err error) {
+func (r RabidaImpl) extract(ctx context.Context, job Job, pageNo int, conf config.RabiConfig) (ret []interface{}, nextPageUrl string, err error) {
 	defer func() {
 		if val := recover(); val != nil {
 			var ok bool
@@ -838,18 +853,20 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 	}
 
 	DelaySleep(conf, "populate")
+
+	p := r.paginator(job, pageNo)
 	if stringutils.IsNotEmpty(job.CssSelector.XpathScope) || stringutils.IsNotEmpty(job.CssSelector.Xpath) {
 		doc := r.Html(ctx, father, conf)
 		ret = r.populateX(ctx, job.CssSelector, conf, doc)
-		if stringutils.IsNotEmpty(job.Paginator.Xpath) {
-			nextPageUrl = lib.FindOne(doc, job.Paginator.Xpath)
+		if stringutils.IsNotEmpty(p.Xpath) {
+			nextPageUrl = lib.FindOne(doc, p.Xpath)
 		}
 	} else {
 		ret = r.populate(ctx, father, job.CssSelector, conf)
-		if stringutils.IsNotEmpty(job.Paginator.Css) && stringutils.IsNotEmpty(job.Paginator.Attr) {
+		if stringutils.IsNotEmpty(p.Css) && stringutils.IsNotEmpty(p.Attr) {
 			timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 			defer cancel()
-			_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, chromedp.ByQuery))
+			_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(p.Css, p.Attr, &nextPageUrl, chromedp.ByQuery))
 		}
 	}
 	return
