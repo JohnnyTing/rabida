@@ -13,6 +13,7 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -147,6 +148,19 @@ func (r RabidaImpl) DownloadFile(ctx context.Context, job Job, callback func(fil
 	log.Printf("Download Complete: %s\n", filepath.Join(conf.Out, fileName))
 	callback(filepath.Join(conf.Out, fileName))
 	return nil
+}
+
+func (r RabidaImpl) paginator(job Job, pageNo int) CssSelector {
+	p := job.Paginator
+	if job.PaginatorFunc != nil {
+		p = job.PaginatorFunc(pageNo)
+	}
+	selector := p.Css
+	if stringutils.IsEmpty(selector) {
+		selector = p.Xpath
+	}
+	logrus.Infof("next page button selector is %s\n", selector)
+	return p
 }
 
 func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback func(ctx context.Context, ret []interface{}, nextPageUrl string, currentPageNo int) bool, before []chromedp.Action, after []chromedp.Action, confPtr *config.RabiConfig, options []chromedp.ExecAllocatorOption, listeners ...func(ev interface{})) error {
@@ -303,9 +317,9 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		})
 	}
 
-	var taskCancel context.CancelFunc
-	timeoutCtx, taskCancel = context.WithTimeout(ctx, conf.Timeout)
-	defer taskCancel()
+	var cancel context.CancelFunc
+	timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+	defer cancel()
 
 	if err = chromedp.Run(timeoutCtx, tasks); err != nil {
 		return errors.Wrap(err, "")
@@ -334,9 +348,9 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			"window.screen.availHeight:", window.screen.availHeight,
 			"window.hasLiedResolution:", window.screen.width < window.screen.availWidth || window.screen.height < window.screen.availHeight,
 		)`
-		timeoutCtx1, cancel := context.WithTimeout(ctx, 30*time.Second)
+		timeoutCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		if err = chromedp.Run(timeoutCtx1, chromedp.EvaluateAsDevTools(consoleArg, nil)); err != nil {
+		if err = chromedp.Run(timeoutCtx, chromedp.EvaluateAsDevTools(consoleArg, nil)); err != nil {
 			return errors.Wrap(err, "")
 		}
 		chromedp.Sleep(10 * time.Second)
@@ -361,9 +375,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 				return errors.Wrap(err, "")
 			}
 		}
-		var cancel1 context.CancelFunc
-		timeoutCtx, cancel1 = context.WithTimeout(ctx, conf.Timeout)
-		defer cancel1()
+		timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+		defer cancel()
 		var buttons []*cdp.Node
 		if father != nil {
 			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(startPageBtn, &buttons, chromedp.BySearch, chromedp.FromNode(father))); err != nil {
@@ -376,9 +389,8 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		}
 		if len(buttons) > 0 {
 			nextPageBtn := buttons[0]
-			var cancel2 context.CancelFunc
-			timeoutCtx, cancel2 = context.WithTimeout(ctx, conf.Timeout)
-			defer cancel2()
+			timeoutCtx, cancel = context.WithTimeout(ctx, conf.Timeout)
+			defer cancel()
 			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
 				return errors.Wrap(err, "")
 			}
@@ -401,7 +413,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		}
 	}
 
-	ret, nextPageUrl, err = r.extract(ctx, job, conf)
+	ret, nextPageUrl, err = r.extract(ctx, job, pageNo, conf)
 	if err != nil {
 		return errors.Wrap(err, "")
 	}
@@ -410,74 +422,94 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 		return nil
 	}
 
-	if stringutils.IsEmpty(job.Paginator.Css) && stringutils.IsEmpty(job.Paginator.Xpath) {
+	p := r.paginator(job, pageNo)
+	if stringutils.IsEmpty(p.Css) && stringutils.IsEmpty(p.Xpath) {
 		return nil
 	}
 	r.sleep(conf)
 
+	old := chromedp.FromContext(ctx).Target.TargetID
+	targetID := chromedp.FromContext(ctx).Target.TargetID
+	var lazyCancel context.CancelFunc
 	for {
-		var father *cdp.Node
-		if job.CssSelector.Iframe {
-			if father, err = iframe(ctx, conf.Timeout, job); err != nil {
-				return errors.Wrap(err, "")
+		var keepOn bool
+		keepOn, err = func() (bool, error) {
+			if lazyCancel != nil {
+				defer lazyCancel()
 			}
-		}
-		var nodeCancel context.CancelFunc
-		timeoutCtx, nodeCancel = context.WithTimeout(ctx, conf.Timeout)
-		var buttons []*cdp.Node
-		pagination := job.Paginator.Css
-		if stringutils.IsEmpty(pagination) {
-			pagination = job.Paginator.Xpath
-		}
-		if father != nil {
-			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch, chromedp.FromNode(father))); err != nil {
-				nodeCancel()
+			newCtx := ctx
+			if targetID != old {
+				newCtx, cancel = chromedp.NewContext(ctx, chromedp.WithTargetID(targetID))
+				defer cancel()
+			}
+			ch := chromedp.WaitNewTarget(newCtx, func(info *target.Info) bool {
+				return info.URL != "" && info.URL != "about:blank"
+			})
+			var father *cdp.Node
+			var buttons []*cdp.Node
+			p = r.paginator(job, pageNo)
+			pagination := p.Css
+			if job.CssSelector.Iframe {
+				if father, err = iframe(newCtx, conf.Timeout, job); err != nil {
+					goto ERR
+				}
+			}
+			timeoutCtx, cancel = context.WithTimeout(newCtx, conf.Timeout)
+			defer cancel()
+			if stringutils.IsEmpty(pagination) {
+				pagination = p.Xpath
+			}
+			if father != nil {
+				if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch, chromedp.FromNode(father))); err != nil {
+					goto ERR
+				}
+			} else {
+				if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch)); err != nil {
+					goto ERR
+				}
+			}
+			if len(buttons) > 0 {
+				nextPageBtn := buttons[0]
+				timeoutCtx, cancel = context.WithTimeout(newCtx, conf.Timeout)
+				defer cancel()
+				if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
+					goto ERR
+				}
+				select {
+				case targetID = <-ch:
+					newCtx, lazyCancel = chromedp.NewContext(ctx, chromedp.WithTargetID(targetID))
+				case <-time.After(1 * time.Second):
+				}
+			}
+			DelaySleep(conf, "click next page")
+			pageNo++
+			logrus.Infof("\n current pageNo: %v \n", pageNo)
+			if r.conf.Debug {
+				if err = screenshot(newCtx, out, pageNo); err != nil {
+					goto ERR
+				}
+				if err = writeHtml(newCtx, out, pageNo); err != nil {
+					goto ERR
+				}
+			}
+			if ret, nextPageUrl, err = r.extract(newCtx, job, pageNo, conf); err != nil {
 				goto ERR
 			}
-		} else {
-			if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch)); err != nil {
-				nodeCancel()
-				goto ERR
+			if abort = callback(newCtx, ret, nextPageUrl, pageNo); abort {
+				goto END
 			}
-		}
-		nodeCancel()
-		if len(buttons) > 0 {
-			nextPageBtn := buttons[0]
-			var jsClickCancel context.CancelFunc
-			timeoutCtx, jsClickCancel = context.WithTimeout(ctx, conf.Timeout)
-			if err = chromedp.Run(timeoutCtx, lib.JsClickNode(nextPageBtn)); err != nil {
-				jsClickCancel()
-				goto ERR
-			}
-			jsClickCancel()
-		}
-		DelaySleep(conf, "click next page")
-		pageNo++
-		logrus.Infof("\n current pageNo: %v \n", pageNo)
-		if r.conf.Debug {
-			if err = screenshot(ctx, out, pageNo); err != nil {
-				return errors.Wrap(err, "")
-			}
-			if err = writeHtml(ctx, out, pageNo); err != nil {
-				return errors.Wrap(err, "")
-			}
-		}
-		if ret, nextPageUrl, err = r.extract(ctx, job, conf); err != nil {
-			goto ERR
-		}
-		if abort = callback(ctx, ret, nextPageUrl, pageNo); abort {
-			goto END
-		}
-		r.sleep(conf)
-		continue
+			r.sleep(conf)
+			return true, nil
 
-	END:
-		return nil
-	ERR:
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil
+		END:
+			return false, nil
+		ERR:
+			logrus.Error(errors.Wrap(err, ""))
+			return false, err
+		}()
+		if !keepOn {
+			return err
 		}
-		return errors.Wrap(err, "")
 	}
 }
 
@@ -800,7 +832,7 @@ func retrieveByXpath(ctx context.Context, cssSelector CssSelector, html *html.No
 	return
 }
 
-func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig) (ret []interface{}, nextPageUrl string, err error) {
+func (r RabidaImpl) extract(ctx context.Context, job Job, pageNo int, conf config.RabiConfig) (ret []interface{}, nextPageUrl string, err error) {
 	defer func() {
 		if val := recover(); val != nil {
 			var ok bool
@@ -821,18 +853,20 @@ func (r RabidaImpl) extract(ctx context.Context, job Job, conf config.RabiConfig
 	}
 
 	DelaySleep(conf, "populate")
+
+	p := r.paginator(job, pageNo)
 	if stringutils.IsNotEmpty(job.CssSelector.XpathScope) || stringutils.IsNotEmpty(job.CssSelector.Xpath) {
 		doc := r.Html(ctx, father, conf)
 		ret = r.populateX(ctx, job.CssSelector, conf, doc)
-		if stringutils.IsNotEmpty(job.Paginator.Xpath) {
-			nextPageUrl = lib.FindOne(doc, job.Paginator.Xpath)
+		if stringutils.IsNotEmpty(p.Xpath) {
+			nextPageUrl = lib.FindOne(doc, p.Xpath)
 		}
 	} else {
 		ret = r.populate(ctx, father, job.CssSelector, conf)
-		if stringutils.IsNotEmpty(job.Paginator.Css) && stringutils.IsNotEmpty(job.Paginator.Attr) {
+		if stringutils.IsNotEmpty(p.Css) && stringutils.IsNotEmpty(p.Attr) {
 			timeoutCtx, cancel := context.WithTimeout(ctx, conf.Timeout)
 			defer cancel()
-			_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(job.Paginator.Css, job.Paginator.Attr, &nextPageUrl, chromedp.ByQuery))
+			_ = chromedp.Run(timeoutCtx, chromedp.JavascriptAttribute(p.Css, p.Attr, &nextPageUrl, chromedp.ByQuery))
 		}
 	}
 	return

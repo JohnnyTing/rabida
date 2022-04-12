@@ -19,3 +19,5 @@ cmd
 .DS_Store
 out
 local
+**/*.local
+screenshot.png

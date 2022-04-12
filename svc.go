@@ -38,7 +38,8 @@ type Job struct {
 	// PrePaginate do something before paginate
 	PrePaginate []EventSelector
 	// Paginator css selector for next page
-	Paginator CssSelector
+	Paginator     CssSelector
+	PaginatorFunc func(currentPageNo int) CssSelector
 	// Limit limits how many pages should be crawled
 	Limit         int
 	StartPageBtn  CssSelector
