@@ -1,9 +1,8 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/JohnnyTing/rabida/lib"
 	"github.com/chromedp/cdproto/cdp"

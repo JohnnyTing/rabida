@@ -1,44 +1,59 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/chromedp"
-	"github.com/sirupsen/logrus"
+	_ "github.com/unionj-cloud/go-doudou/framework/http"
 	"testing"
 )
 
-func TestRabidaXpathImpl_Crawl(t *testing.T) {
+func TestRabidaImplDynamicNextPageBtn_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "https://you.ctrip.com/sight/shenzhen26/2778.html",
+		Link: "https://www.sjz.gov.cn/col/1596014942837/index.html",
 		CssSelector: CssSelector{
-			XpathScope: `//*[@id="commentModule"]/div[@class='commentList']/div`,
+			Scope: `.nr ul li`,
 			Attrs: map[string]CssSelector{
-				"content": {
-					Xpath: "//div[@class='commentDetail']",
+				"title": {
+					Css:  "a:first-child",
+					Attr: "title",
+				},
+				"link": {
+					Css:  "a:first-child",
+					Attr: "href",
 				},
 				"date": {
-					Xpath: `//div[@class='commentTime']`,
+					Css: "span.date",
 				},
 			},
 		},
-		Paginator: CssSelector{
-			Xpath: "//*[@id='commentModule']//li[@class=' ant-pagination-next' and not(@aria-disabled='true')]",
+		PaginatorFunc: func(currentPageNo int) CssSelector {
+			return CssSelector{
+				Css: fmt.Sprintf(`.center #MinyooPage>a[title="当前在第%d页"]+a`, currentPageNo),
+			}
 		},
 		Limit: 3,
 	}
+
+	opts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.NoSandbox,
+	}
+	if conf.Mode == "headless" {
+		opts = append(opts, chromedp.Headless)
+	}
+
 	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {
 			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
 		}
-		logrus.Printf("currentPageNo: %d\n", currentPageNo)
 		if currentPageNo >= job.Limit {
 			return true
 		}

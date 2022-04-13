@@ -24,7 +24,7 @@ type RabiConfig struct {
 	// Debug if true, it will take full screenshot of every page and output debug logs to stdout
 	Debug bool
 	// Out screenshot png files output path
-	Out string
+	Out string `default:"out"`
 	// Strict useragent、browser、platform should be matched, platform should not be linux etc..
 	Strict bool
 	//ProxyServer proxy server
