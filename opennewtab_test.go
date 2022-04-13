@@ -1,44 +1,55 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/chromedp"
-	"github.com/sirupsen/logrus"
 	"testing"
 )
 
-func TestRabidaXpathImpl_Crawl(t *testing.T) {
+func TestRabidaImplOpenNewTab_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "https://you.ctrip.com/sight/shenzhen26/2778.html",
+		Link: "http://www.shenyang.gov.cn/zwgk/zcwj/zfwj/",
 		CssSelector: CssSelector{
-			XpathScope: `//*[@id="commentModule"]/div[@class='commentList']/div`,
+			Scope: `.list-sp .title_futi_time`,
 			Attrs: map[string]CssSelector{
-				"content": {
-					Xpath: "//div[@class='commentDetail']",
+				"title": {
+					Css: ".title > a",
+				},
+				"link": {
+					Css:  ".title > a",
+					Attr: "href",
 				},
 				"date": {
-					Xpath: `//div[@class='commentTime']`,
+					Css: ".time_pub",
 				},
 			},
 		},
 		Paginator: CssSelector{
-			Xpath: "//*[@id='commentModule']//li[@class=' ant-pagination-next' and not(@aria-disabled='true')]",
+			Css: ".fanye > a.h12:nth-last-child(4)",
 		},
 		Limit: 3,
 	}
+
+	opts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.NoSandbox,
+	}
+	if conf.Mode == "headless" {
+		opts = append(opts, chromedp.Headless)
+	}
+
 	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
 		for _, item := range ret {
 			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
 		}
-		logrus.Printf("currentPageNo: %d\n", currentPageNo)
 		if currentPageNo >= job.Limit {
 			return true
 		}
@@ -47,6 +58,6 @@ func TestRabidaXpathImpl_Crawl(t *testing.T) {
 		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
 	})
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

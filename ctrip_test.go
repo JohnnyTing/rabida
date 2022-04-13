@@ -1,10 +1,9 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"testing"
 )
@@ -41,7 +40,7 @@ func TestRabidaCrawlCtrip(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -87,6 +86,6 @@ func TestRabidaCrawlCtripFromLatest(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

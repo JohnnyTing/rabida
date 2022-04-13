@@ -1,10 +1,9 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/chromedp"
 	"github.com/sirupsen/logrus"
@@ -47,6 +46,6 @@ func TestRabidaXpathImpl_Crawl(t *testing.T) {
 		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
 	})
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

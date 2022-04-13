@@ -1,3 +1,7 @@
+[![Go](https://github.com/JohnnyTing/rabida/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/JohnnyTing/rabida/actions/workflows/go.yml)
+[![codecov](https://codecov.io/gh/JohnnyTing/rabida/branch/master/graph/badge.svg?token=XH87JJTRWS)](https://codecov.io/gh/JohnnyTing/rabida)
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+
 ### Rabida
 
 Rabida 是一个基于 [chromedp](https://github.com/chromedp/chromedp) 简单易用的爬虫框架。
@@ -8,7 +12,8 @@ Rabida 是一个基于 [chromedp](https://github.com/chromedp/chromedp) 简单�
 - `预分页`: 在获取分页数据前做一些操作，比如点击日期按钮获取最新数据。
 - `浏览器cookie`: 启用浏览器cookie，针对于某些网站需要登录状态。
 - `延迟跟超时`:  能够自定义延迟跟超时时间。
-- `反爬虫检测`: 每个任务默认加载了反爬虫检测脚本，脚本来源于[puppeteer-extra-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/extract-stealth-evasions#readme)。
+- `反爬虫检测`:
+  每个任务默认加载了反爬虫检测脚本，脚本来源于[puppeteer-extra-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/extract-stealth-evasions#readme)。
 - `严格模式`: useragent、浏览器、浏览器的平台必须匹配，如果设置成true，将设置为chrome-mac相关的useragent、chrome浏览器、浏览器平台为Mac。针对于某些网站的反爬机制。
 
 ### 安装
@@ -36,7 +41,7 @@ RABI_PROXY=
 
 ### 用法
 
-这里看更多的例子 [examples](https://github.com/JohnnyTing/rabida/blob/master/examples) 
+这里看更多的例子 [examples](https://github.com/JohnnyTing/rabida/blob/master/examples)
 
 ```go
 func TestRabidaImplCrawl(t *testing.T) {

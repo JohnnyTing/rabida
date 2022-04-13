@@ -1,9 +1,8 @@
-package examples
+package service
 
 import (
 	"context"
 	"fmt"
-	. "github.com/JohnnyTing/rabida"
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/JohnnyTing/rabida/lib"
 	"github.com/chromedp/cdproto/cdp"
@@ -75,7 +74,7 @@ func TestRabidaImpl_CrawlWithListeners(t *testing.T) {
 		},
 	)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -139,7 +138,7 @@ func TestRabidaImpl_CrawlWithListeners2(t *testing.T) {
 		},
 	)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -183,7 +182,6 @@ func TestRabidaImpl_WaitNewTarget(t *testing.T) {
 	ctx, allocCancel = chromedp.NewExecAllocator(context.Background(), opts...)
 	defer allocCancel()
 
-	//ctx, contextCancel = chromedp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
 	ctx, contextCancel = chromedp.NewContext(ctx)
 	defer contextCancel()
 
@@ -202,7 +200,7 @@ func TestRabidaImpl_WaitNewTarget(t *testing.T) {
 		chromedp.Navigate("http://minzheng.hebei.gov.cn/policyDatabase"),
 		chromedp.EvaluateAsDevTools("document.querySelector('.cell>a').click()", &res),
 	); err != nil {
-		log.Fatal(err)
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 
 	// This will block until the chromedp listener closes the channel

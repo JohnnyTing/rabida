@@ -1,4 +1,8 @@
-### Rabida
+[![Go](https://github.com/JohnnyTing/rabida/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/JohnnyTing/rabida/actions/workflows/go.yml)
+[![codecov](https://codecov.io/gh/JohnnyTing/rabida/branch/master/graph/badge.svg?token=XH87JJTRWS)](https://codecov.io/gh/JohnnyTing/rabida)
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+
+### Rabida [中文](https://github.com/JohnnyTing/rabida/blob/master/README_ZH.md)
 
 Rabida is a simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
 
