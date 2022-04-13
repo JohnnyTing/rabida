@@ -6,6 +6,7 @@ import (
 	"github.com/JohnnyTing/rabida/config"
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/chromedp"
+	"github.com/pkg/errors"
 	"log"
 	"strings"
 	"testing"
@@ -19,9 +20,22 @@ func TestRabidaImpl_DownloadFile(t *testing.T) {
 	job := Job{
 		Link: "http://dnr.sc.gov.cn/scdnr/sctdlwj/2022/1/7/d555de82b08a42fbb7006f4cc567d296/files/8ab0e1fad55c459c9742448b1f975795.pdf",
 	}
+	var err error
+	defer func() {
+		if val := recover(); val != nil {
+			var ok bool
+			err, ok = val.(error)
+			if !ok {
+				err = errors.New(fmt.Sprint(val))
+			} else {
+				err = errors.Wrap(err, "recover from panic")
+			}
+		}
+	}()
+
 	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	err := rabi.DownloadFile(timeoutCtx, job, func(file string) {
+	err = rabi.DownloadFile(timeoutCtx, job, func(file string) {
 		fmt.Println(file)
 	}, conf)
 	if err != nil {
@@ -95,10 +109,23 @@ func TestRabidaImpl_Download(t *testing.T) {
 		}
 	})
 
+	var err error
+	defer func() {
+		if val := recover(); val != nil {
+			var ok bool
+			err, ok = val.(error)
+			if !ok {
+				err = errors.New(fmt.Sprint(val))
+			} else {
+				err = errors.Wrap(err, "recover from panic")
+			}
+		}
+	}()
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	if err := chromedp.Run(timeoutCtx,
+	if err = chromedp.Run(timeoutCtx,
 		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
 			WithDownloadPath("out").
 			WithEventsEnabled(true),
