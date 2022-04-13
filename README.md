@@ -2,7 +2,7 @@
 [![codecov](https://codecov.io/gh/JohnnyTing/rabida/branch/master/graph/badge.svg?token=XH87JJTRWS)](https://codecov.io/gh/JohnnyTing/rabida)
 <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 
-### Rabida
+### Rabida [中文](https://github.com/JohnnyTing/rabida/blob/master/README_ZH.md)
 
 Rabida is a simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
 
@@ -45,41 +45,41 @@ See [examples](https://github.com/JohnnyTing/rabida/blob/master/examples) for mo
 
 ```go
 func TestRabidaImplCrawl(t *testing.T) {
-conf := config.LoadFromEnv()
-fmt.Printf("%+v\n", conf)
-rabi := NewRabida(conf)
-job := Job{
-Link: "https://tieba.baidu.com/f?kw=nba",
-CssSelector: CssSelector{
-Scope: `#thread_list > li.j_thread_list`,
-Attrs: map[string]CssSelector{
-"title": {
-Css: "div.threadlist_title > a",
-},
-"date": {
-Css: "span.threadlist_reply_date",
-},
-},
-},
-Paginator: CssSelector{
-Css: "#frs_list_pager > a.next.pagination-item",
-},
-Limit: 3,
-}
-err := rabi.Crawl(context.Background(), job, func (ret []interface{}, nextPageUrl string, currentPageNo int) bool {
-for _, item := range ret {
-fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
-}
-if currentPageNo >= job.Limit {
-return true
-}
-return false
-}, nil, []chromedp.Action{
-chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
-})
-if err != nil {
-panic(fmt.Sprintf("%+v", err))
-}
+	conf := config.LoadFromEnv()
+	fmt.Printf("%+v\n", conf)
+	rabi := NewRabida(conf)
+	job := Job{
+		Link: "https://tieba.baidu.com/f?kw=nba",
+		CssSelector: CssSelector{
+			Scope: `#thread_list > li.j_thread_list`,
+			Attrs: map[string]CssSelector{
+				"title": {
+					Css: "div.threadlist_title > a",
+				},
+				"date": {
+					Css: "span.threadlist_reply_date",
+				},
+			},
+		},
+		Paginator: CssSelector{
+			Css: "#frs_list_pager > a.next.pagination-item",
+		},
+		Limit: 3,
+	}
+	err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+		for _, item := range ret {
+			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+		}
+		if currentPageNo >= job.Limit {
+			return true
+		}
+		return false
+	}, nil, []chromedp.Action{
+		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
+	})
+	if err != nil {
+		panic(fmt.Sprintf("%+v", err))
+	}
 }
 ```
 
