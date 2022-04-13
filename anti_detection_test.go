@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/JohnnyTing/rabida/lib"
 	"github.com/JohnnyTing/rabida/useragent"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"io/ioutil"
-	"log"
 	"testing"
 )
 
@@ -42,9 +42,9 @@ func TestAntiDetection(t *testing.T) {
 		chromedp.FullScreenshot(&buf, 100))
 
 	if err := chromedp.Run(ctx, tasks); err != nil {
-		log.Fatal(err)
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 	if err := ioutil.WriteFile("screenshot.png", buf, 0644); err != nil {
-		log.Fatal(err)
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

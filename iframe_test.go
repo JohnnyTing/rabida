@@ -49,7 +49,7 @@ func TestRabidaCrawlIframe(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -94,6 +94,6 @@ func TestRabidaCrawlIframe1(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

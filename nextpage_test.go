@@ -61,6 +61,6 @@ func TestRabidaImplNextPage_Crawl(t *testing.T) {
 		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
 	})
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }

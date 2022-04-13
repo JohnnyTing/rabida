@@ -40,7 +40,7 @@ func TestRabidaCrawlCtrip(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -86,6 +86,6 @@ func TestRabidaCrawlCtripFromLatest(t *testing.T) {
 		return false
 	}, nil, nil)
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
