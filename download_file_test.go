@@ -9,6 +9,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRabidaImpl_DownloadFile(t *testing.T) {
@@ -16,9 +17,11 @@ func TestRabidaImpl_DownloadFile(t *testing.T) {
 	fmt.Printf("%+v\n", conf)
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "http://minzheng.hebei.gov.cn/jinge/Document/20211129/file20211129145312348.pdf",
+		Link: "https://www.mohurd.gov.cn/file/2022/20220412/be88631f-c15b-4eeb-80d5-ed2a5ad1b910.doc?n=%E6%A1%88%E4%BE%8B%E4%BB%8B%E7%BB%8D%E7%BC%96%E5%86%99%E5%A4%A7%E7%BA%B2",
 	}
-	err := rabi.DownloadFile(context.Background(), job, func(file string) {
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err := rabi.DownloadFile(timeoutCtx, job, func(file string) {
 		fmt.Println(file)
 	}, conf)
 	if err != nil {
@@ -92,11 +95,14 @@ func TestRabidaImpl_Download(t *testing.T) {
 		}
 	})
 
-	if err := chromedp.Run(ctx,
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	if err := chromedp.Run(timeoutCtx,
 		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
 			WithDownloadPath("out").
 			WithEventsEnabled(true),
-		chromedp.Navigate("http://minzheng.hebei.gov.cn/jinge/Document/20211129/file20211129145312348.pdf"),
+		chromedp.Navigate("https://www.mohurd.gov.cn/file/2022/20220412/be88631f-c15b-4eeb-80d5-ed2a5ad1b910.doc?n=%E6%A1%88%E4%BE%8B%E4%BB%8B%E7%BB%8D%E7%BC%96%E5%86%99%E5%A4%A7%E7%BA%B2"),
 	); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
 		// Note: Ignoring the net::ERR_ABORTED page error is essential here since downloads
 		// will cause this error to be emitted, although the download will still succeed.
