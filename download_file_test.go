@@ -25,7 +25,7 @@ func TestRabidaImpl_DownloadFile(t *testing.T) {
 		fmt.Println(file)
 	}, conf)
 	if err != nil {
-		panic(err)
+		t.Error(err)
 	}
 }
 
@@ -106,7 +106,7 @@ func TestRabidaImpl_Download(t *testing.T) {
 	); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
 		// Note: Ignoring the net::ERR_ABORTED page error is essential here since downloads
 		// will cause this error to be emitted, although the download will still succeed.
-		log.Fatal(err)
+		t.Error(err)
 	}
 
 	// This will block until the chromedp listener closes the channel
