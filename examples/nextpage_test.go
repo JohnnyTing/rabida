@@ -16,25 +16,24 @@ func TestRabidaImplNextPage_Crawl(t *testing.T) {
 
 	rabi := service.NewRabida(conf)
 	job := service.Job{
-		Link: "http://js.wuxi.gov.cn/zfxxgk/xxgkml/fgwjjjd/bmwj/index.shtml",
+		Link: "http://www.xm.gov.cn/zfxxgk/xxgkznml/szfgz/szfwz/",
 		CssSelector: service.CssSelector{
-			Scope: `#doclist>li`,
+			Scope: `.tit1+table tr:not(:first-child)`,
 			Attrs: map[string]service.CssSelector{
 				"title": {
-					Css:  "a",
-					Attr: "title",
+					Css: ".info-extra .info_tit:last-child>a:last-child,.info-extra .info_tit:last-child>span:last-child",
 				},
 				"link": {
-					Css:  "a",
+					Css:  "table a",
 					Attr: "href",
 				},
 				"date": {
-					Css: "span",
+					Css: ":scope table td:last-child",
 				},
 			},
 		},
 		Paginator: service.CssSelector{
-			Css: ".next",
+			Css: ".fy_tit_l a.next",
 		},
 		Limit: 3,
 	}
