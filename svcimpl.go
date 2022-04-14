@@ -220,6 +220,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			chromedp.Flag("enable-automation", true),
 			chromedp.Flag("password-store", "basic"),
 			chromedp.Flag("use-mock-keychain", true),
+			chromedp.Flag("ignore-certificate-errors", "1"),
 		}
 		var userAgent string
 		if conf.Strict {
