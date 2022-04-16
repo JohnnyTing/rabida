@@ -434,6 +434,7 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	var lazyCancel context.CancelFunc
 	for {
 		var keepOn bool
+		var goon bool
 		keepOn, err = func() (bool, error) {
 			if lazyCancel != nil {
 				defer lazyCancel()
@@ -455,11 +456,18 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 					goto ERR
 				}
 			}
-			timeoutCtx, cancel = context.WithTimeout(newCtx, conf.Timeout)
-			defer cancel()
 			if stringutils.IsEmpty(pagination) {
 				pagination = p.Xpath
 			}
+			if goon, err = paginateCondition(newCtx, conf, job, father); err != nil {
+				goto ERR
+			}
+			if !goon {
+				goto END
+			}
+
+			timeoutCtx, cancel = context.WithTimeout(newCtx, conf.Timeout)
+			defer cancel()
 			if father != nil {
 				if err = chromedp.Run(timeoutCtx, chromedp.Nodes(pagination, &buttons, chromedp.BySearch, chromedp.FromNode(father))); err != nil {
 					goto ERR
@@ -512,6 +520,36 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 			return err
 		}
 	}
+}
+
+// proceed except last page
+func paginateCondition(ctx context.Context, conf config.RabiConfig, job Job, father *cdp.Node) (goon bool, err error) {
+	condition := job.Paginator.Condition
+	if condition == nil || stringutils.IsEmpty(condition.Value) {
+		return true, nil
+	}
+	var (
+		queryActions []chromedp.QueryOption
+		text         string
+		ok           bool
+	)
+	queryActions = append(queryActions, chromedp.ByQuery)
+	if father != nil {
+		queryActions = append(queryActions, chromedp.FromNode(father))
+	}
+
+	timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
+	defer nodeCancel()
+	switch condition.ExecSelector.Type {
+	case GetAttributeValueEvent:
+		execSelector := condition.ExecSelector.Selector
+		if err = chromedp.Run(timeoutCtx, chromedp.AttributeValue(execSelector.Css, execSelector.Attr, &text, &ok, chromedp.ByQuery)); err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("css: %s, attr: %s err", execSelector.Css, execSelector.Attr))
+		}
+		logrus.Infof("attribute: %s, retrieve value: %s, expect: %s\n", execSelector.Attr, text, condition.Value)
+		return condition.CheckFunc(text, condition.Value), nil
+	}
+	return true, nil
 }
 
 func screenshot(ctx context.Context, out string, pageNo int) (err error) {

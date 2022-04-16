@@ -27,7 +27,8 @@ type CssSelector struct {
 	Xpath    string
 	SetAttrs []SetAttribute
 	// Before dosomething before retrieve value
-	Before []EventSelector
+	Before    []EventSelector
+	Condition *Condition
 }
 
 type Job struct {
@@ -82,6 +83,7 @@ const (
 	ClickEvent              Event = "click"
 	SetAttributesValueEvent Event = "setAttributesValue"
 	TextEvent               Event = "getTextValue"
+	GetAttributeValueEvent  Event = "getAttributeValue"
 )
 
 type Rabida interface {
