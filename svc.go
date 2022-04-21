@@ -42,8 +42,8 @@ type Job struct {
 	// PrePaginate do something before paginate
 	PrePaginate []EventSelector `json:"prePaginate"`
 	// Paginator css selector for next page
-	Paginator     CssSelector                         `json:"paginator"`
-	PaginatorFunc func(currentPageNo int) CssSelector `json:"paginatorFunc"`
+	Paginator     CssSelector `json:"paginator"`
+	PaginatorFunc func(currentPageNo int) CssSelector
 	// Limit limits how many pages should be crawled
 	Limit         int         `json:"limit"`
 	StartPageBtn  CssSelector `json:"startPageBtn"`
@@ -70,9 +70,9 @@ type SetAttribute struct {
 }
 
 type Condition struct {
-	Value        string                        `json:"value"`
-	CheckFunc    func(text, value string) bool `json:"checkFunc"`
-	ExecSelector ExecSelector                  `json:"execSelector"`
+	Value        string `json:"value"`
+	CheckFunc    func(text, value string) bool
+	ExecSelector ExecSelector `json:"execSelector"`
 }
 
 type ExecSelector struct {
