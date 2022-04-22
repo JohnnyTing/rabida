@@ -522,36 +522,6 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	}
 }
 
-// proceed except last page
-func paginateCondition(ctx context.Context, conf config.RabiConfig, job Job, father *cdp.Node) (goon bool, err error) {
-	condition := job.Paginator.Condition
-	if condition == nil || stringutils.IsEmpty(condition.Value) {
-		return true, nil
-	}
-	var (
-		queryActions []chromedp.QueryOption
-		text         string
-		ok           bool
-	)
-	queryActions = append(queryActions, chromedp.ByQuery)
-	if father != nil {
-		queryActions = append(queryActions, chromedp.FromNode(father))
-	}
-
-	timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
-	defer nodeCancel()
-	switch condition.ExecSelector.Type {
-	case GetAttributeValueEvent:
-		execSelector := condition.ExecSelector.Selector
-		if err = chromedp.Run(timeoutCtx, chromedp.AttributeValue(execSelector.Css, execSelector.Attr, &text, &ok, chromedp.ByQuery)); err != nil {
-			return false, errors.Wrap(err, fmt.Sprintf("css: %s, attr: %s err", execSelector.Css, execSelector.Attr))
-		}
-		logrus.Infof("attribute: %s, retrieve value: %s, expect: %s\n", execSelector.Attr, text, condition.Value)
-		return condition.CheckFunc(text, condition.Value), nil
-	}
-	return true, nil
-}
-
 func screenshot(ctx context.Context, out string, pageNo int) (err error) {
 	var buf []byte
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -606,31 +576,29 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 			defer nodeCancel()
 			preSelectors := CssOrXpath(event.Selector)
 			if stringutils.IsNotEmpty(preSelectors) {
+				flag, err := ExecEventCondition(ctx, conf, &event.Condition, queryActions)
+				if err != nil {
+					return errors.Wrap(err, "event exc condition Error")
+				}
 				switch event.Type {
 				case ClickEvent:
-					flag, err := ExecEventCondition(ctx, conf, event, queryActions)
-					if err != nil {
-						return errors.Wrap(err, "event exc condition Error")
-					}
 					if flag {
-						if err := chromedp.Run(timeoutCtx, chromedp.Click(preSelectors, queryActions...)); err != nil {
+						if err = chromedp.Run(timeoutCtx, chromedp.Click(preSelectors, queryActions...)); err != nil {
 							return errors.Wrap(err, fmt.Sprintf("event before Click Error: %s", preSelectors))
 						}
 					}
 				case SetAttributesValueEvent:
-					flag, err := ExecEventCondition(ctx, conf, event, queryActions)
-					if err != nil {
-						return errors.Wrap(err, "event exc condition Error")
-					}
 					if flag {
 						for _, setAttr := range event.Selector.SetAttrs {
 							timeoutCtx, nodeCancel := context.WithTimeout(ctx, conf.Timeout)
 							defer nodeCancel()
-							if err := chromedp.Run(timeoutCtx, chromedp.SetAttributeValue(preSelectors, setAttr.AttributeName, setAttr.AttributeValue, queryActions...)); err != nil {
+							if err = chromedp.Run(timeoutCtx, chromedp.SetAttributeValue(preSelectors, setAttr.AttributeName, setAttr.AttributeValue, queryActions...)); err != nil {
 								return errors.Wrap(err, fmt.Sprintf("event before SetAttributesValue Error: %s", preSelectors))
 							}
 						}
 					}
+				default:
+					logrus.Error(fmt.Sprintf("event type unmatched: %s", event.Type))
 				}
 			}
 		}
@@ -638,21 +606,45 @@ func doSomethingBefore(ctx context.Context, conf config.RabiConfig, events []Eve
 	return nil
 }
 
-func ExecEventCondition(ctx context.Context, conf config.RabiConfig, event EventSelector, queryActions []chromedp.QueryOption) (bool, error) {
-	if stringutils.IsNotEmpty(event.Condition.Value) {
-		conditionCss := CssOrXpath(event.Condition.ExecSelector.Selector)
-		conditionTimeoutCtx, conditionCancel := context.WithTimeout(ctx, conf.Timeout)
-		defer conditionCancel()
-		switch event.Condition.ExecSelector.Type {
-		case TextEvent:
-			var text string
-			if err := chromedp.Run(conditionTimeoutCtx, chromedp.Text(conditionCss, &text, queryActions...)); err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("event condition before Text Error: %s", conditionCss))
-			}
-			value := event.Condition.Value
-			rs := event.Condition.CheckFunc(text, value)
-			return rs, nil
+// paginateCondition proceed except last page
+func paginateCondition(ctx context.Context, conf config.RabiConfig, job Job, father *cdp.Node) (goon bool, err error) {
+	var (
+		queryActions []chromedp.QueryOption
+	)
+	queryActions = append(queryActions, chromedp.ByQuery)
+	if father != nil {
+		queryActions = append(queryActions, chromedp.FromNode(father))
+	}
+	return ExecEventCondition(ctx, conf, job.Paginator.Condition, queryActions)
+}
+
+func ExecEventCondition(ctx context.Context, conf config.RabiConfig, condition *Condition, queryActions []chromedp.QueryOption) (bool, error) {
+	if condition == nil || stringutils.IsEmpty(condition.Value) {
+		return true, nil
+	}
+	var (
+		text string
+		ok   bool
+	)
+	conditionTimeoutCtx, conditionCancel := context.WithTimeout(ctx, conf.Timeout)
+	defer conditionCancel()
+	switch condition.ExecSelector.Type {
+	case TextEvent:
+		conditionCss := CssOrXpath(condition.ExecSelector.Selector)
+		if err := chromedp.Run(conditionTimeoutCtx, chromedp.Text(conditionCss, &text, queryActions...)); err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("condition css err: %s", conditionCss))
 		}
+		logrus.Infof("retrieve value: %s, expect: %s\n", text, condition.Value)
+		return condition.CheckFunc(text, condition.Value), nil
+	case GetAttributeValueEvent:
+		execSelector := condition.ExecSelector.Selector
+		if err := chromedp.Run(conditionTimeoutCtx, chromedp.AttributeValue(execSelector.Css, execSelector.Attr, &text, &ok, queryActions...)); err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("condition css: %s, attr: %s err", execSelector.Css, execSelector.Attr))
+		}
+		logrus.Infof("attribute: %s, retrieve value: %s, expect: %s\n", execSelector.Attr, text, condition.Value)
+		return condition.CheckFunc(text, condition.Value), nil
+	default:
+		logrus.Error(fmt.Sprintf("event type unmatched: %s", condition.ExecSelector.Type))
 	}
 	return true, nil
 }

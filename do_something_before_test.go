@@ -14,17 +14,8 @@ func TestRabidaImplDoSomethingBefore_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
 	rabi := NewRabida(conf)
-	var prePaginators []EventSelector
-	one := EventSelector{
-		Type: ClickEvent,
-		Selector: CssSelector{
-			Css: "#react > div > div > div.center-content.clearfix > div.left-content > div > div.comment-title-bar > div > span:nth-child(2)",
-		},
-	}
-	prePaginators = append(prePaginators, one)
 	job := Job{
-		Link:        "https://www.meituan.com/zhoubianyou/1161635/",
-		PrePaginate: prePaginators,
+		Link: "https://www.meituan.com/zhoubianyou/1161635/",
 		CssSelector: CssSelector{
 			Scope: "div.comment-main > div.comment-item",
 			Attrs: map[string]CssSelector{

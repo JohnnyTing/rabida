@@ -104,7 +104,7 @@ func TestRabidaCrawlCtripPaginationCondition(t *testing.T) {
 	}
 	prePaginators = append(prePaginators, one)
 	fun := func(text, value string) bool {
-		return !strings.Contains(text, value)
+		return strings.Contains(text, value)
 	}
 	job := Job{
 		Link:        "https://you.ctrip.com/sight/beijing1/112646713.html#ctm_ref=www_hp_bs_lst",
@@ -123,7 +123,7 @@ func TestRabidaCrawlCtripPaginationCondition(t *testing.T) {
 		Paginator: CssSelector{
 			Css: "#commentModule > div.myPagination > ul > li.ant-pagination-next[aria-disabled='false']",
 			Condition: &Condition{
-				Value:     "true",
+				Value:     "false",
 				CheckFunc: fun,
 				ExecSelector: ExecSelector{
 					Type: GetAttributeValueEvent,
