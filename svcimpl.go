@@ -329,29 +329,9 @@ func (r RabidaImpl) CrawlWithListeners(ctx context.Context, job Job, callback fu
 	DelaySleep(conf, "start run")
 
 	if r.conf.Debug {
-		consoleArg := `console.log(
-			"navigator.platform:", navigator.platform,
-			"navigator.userAgent:", navigator.userAgent,
-			"navigator.webdriver:", navigator.webdriver,
-			"navigator.plugins.length:", navigator.plugins.length,
-			"navigator.language:", navigator.language,
-			"navigator.oscpu:", navigator.oscpu, 
-			"navigator.productSub:", navigator.productSub, 
-			"eval.toString().length:", eval.toString().length,
-			"navigator.hardwareConcurrency:", navigator.hardwareConcurrency,
-			"window.sessionStorage:", !!window.sessionStorage,
-			"window.localStorage:", !!window.localStorage,
-			"window.indexedDB:", !!window.indexedDB,
-			"window.openDatabase:", !!window.openDatabase,
-			"window.screen.width:", window.screen.width,
-			"window.screen.availWidth:", window.screen.availWidth,
-			"window.screen.height:", window.screen.height,
-			"window.screen.availHeight:", window.screen.availHeight,
-			"window.hasLiedResolution:", window.screen.width < window.screen.availWidth || window.screen.height < window.screen.availHeight,
-		)`
 		timeoutCtx, cancel = context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		if err = chromedp.Run(timeoutCtx, chromedp.EvaluateAsDevTools(consoleArg, nil)); err != nil {
+		if err = chromedp.Run(timeoutCtx, chromedp.EvaluateAsDevTools(lib.DebugPrint, nil)); err != nil {
 			return errors.Wrap(err, "")
 		}
 		chromedp.Sleep(10 * time.Second)
