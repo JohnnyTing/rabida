@@ -659,6 +659,10 @@ func (r RabidaImpl) sleep(conf config.RabiConfig) {
 	DelaySleep(conf, "crawl next page")
 }
 
+func (r RabidaImpl) sleepScroll(conf config.RabiConfig) {
+	DelaySleep(conf, "crawl next scroll")
+}
+
 func DelaySleep(conf config.RabiConfig, tag string) {
 	var s time.Duration
 	if len(conf.Delay) > 1 {

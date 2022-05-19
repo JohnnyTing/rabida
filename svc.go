@@ -167,4 +167,39 @@ type Rabida interface {
 		options []chromedp.ExecAllocatorOption,
 		listeners ...func(ev interface{}),
 	) error
+
+	CrawlScrollSmooth(ctx context.Context, job Job,
+		// callback process result
+		// abort pagination if it returns true
+		callback func(ret []interface{}, currentPageNo int) bool,
+		// actions before navigation
+		before []chromedp.Action,
+		// actions after navigation
+		after []chromedp.Action,
+	) error
+
+	CrawlScrollSmoothWithConfig(ctx context.Context, job Job,
+		// callback process result
+		// abort pagination if it returns true
+		callback func(ret []interface{}, currentPageNo int) bool,
+		// actions before navigation
+		before []chromedp.Action,
+		// actions after navigation
+		after []chromedp.Action,
+		conf config.RabiConfig,
+		options ...chromedp.ExecAllocatorOption,
+	) error
+
+	CrawlScrollSmoothWithListeners(ctx context.Context, job Job,
+		// callback process result
+		// abort pagination if it returns true
+		callback func(ctx context.Context, ret []interface{}, currentPageNo int) bool,
+		// actions before navigation
+		before []chromedp.Action,
+		// actions after navigation
+		after []chromedp.Action,
+		confPtr *config.RabiConfig,
+		options []chromedp.ExecAllocatorOption,
+		listeners ...func(ev interface{}),
+	) error
 }

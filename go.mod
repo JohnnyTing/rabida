@@ -11,6 +11,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/cast v1.3.0
 	github.com/unionj-cloud/go-doudou v1.0.5
 	golang.org/x/net v0.0.0-20220325170049-de3da57026de
 )
