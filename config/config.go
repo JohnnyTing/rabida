@@ -33,11 +33,11 @@ type RabiConfig struct {
 	//ProxyServer proxy server
 	Proxy string `json:"proxy"`
 	// ScrollType scroll should be scrollBy and scrollTo. default is scrollBy
-	ScrollType string `json:"scroll_type" default:"scrollBy"`
+	ScrollType string `split_words:"true" json:"scroll_type" default:"scrollBy"`
 	// ScrollTop refer to window.scrollTo parameters
-	ScrollTop int `json:"scroll_top" default:"800"`
+	ScrollTop string `split_words:"true" json:"scroll_top" default:"800"`
 	// ScrollLeft refer to window.scrollTo parameters
-	ScrollLeft int `json:"scroll_left" default:"0"`
+	ScrollLeft string `split_words:"true" json:"scroll_left" default:"0"`
 }
 
 func LoadFromEnv() *RabiConfig {
