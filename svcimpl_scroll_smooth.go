@@ -413,10 +413,12 @@ func (r RabidaImpl) populateScrollSmooth(ctx context.Context, father *cdp.Node, 
 		if father != nil {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll, chromedp.FromNode(father))); err != nil {
 				logrus.Error(fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope)))
+				panic(err)
 			}
 		} else {
 			if err := chromedp.Run(timeoutCtx, chromedp.Nodes(scope, &nodes, chromedp.ByQueryAll)); err != nil {
 				logrus.Error(fmt.Sprintf("scope err: %+v", errors.Wrap(ErrNotFound, scope)))
+				panic(err)
 			}
 		}
 	} else {
