@@ -25,6 +25,22 @@ func TestRabidaImplCrawlScrollSmooth(t *testing.T) {
 						Css:  `a > time`,
 						Attr: `datetime`,
 					},
+					"link": {
+						Css:  `a[role="link"][href*=status]`,
+						Attr: `href`,
+					},
+					"reply": {
+						Css:  `div[data-testid="reply"]`,
+						Attr: `aria-label`,
+					},
+					"retweet": {
+						Css:  `div[data-testid="retweet"]`,
+						Attr: `aria-label`,
+					},
+					"like": {
+						Css:  `div[data-testid="like"]`,
+						Attr: `aria-label`,
+					},
 				},
 			},
 			Limit: 5,
