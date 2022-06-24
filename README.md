@@ -15,6 +15,8 @@ Rabida is a simply crawler framework based on [chromedp](https://github.com/chro
 - `AntiDetection`: default loaded anti_detetion script for current job. script sourced
   from [puppeteer-extra-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/extract-stealth-evasions#readme)
 - `Strict Mode`: useragent、browser、platform must be matched，will be related chrome-mac if true
+- `Xpath`: specify xpath expression to lookup elements
+- `Iframe`: be able to specify the iframe selector
 
 ### Install
 
@@ -43,26 +45,73 @@ RABI_PROXY=
 
 See [examples](https://github.com/JohnnyTing/rabida/blob/master/examples) for more details
 
+
+
+Css Selectior:
+
 ```go
 func TestRabidaImplCrawl(t *testing.T) {
+    conf := config.LoadFromEnv()
+    fmt.Printf("%+v\n", conf)
+    rabi := NewRabida(conf)
+    job := Job{
+        Link: "https://tieba.baidu.com/f?kw=nba",
+        CssSelector: CssSelector{
+            Scope: `#thread_list > li.j_thread_list`,
+            Attrs: map[string]CssSelector{
+                "title": {
+                    Css: "div.threadlist_title > a",
+                },
+                "date": {
+                    Css: "span.threadlist_reply_date",
+                },
+            },
+        },
+        Paginator: CssSelector{
+            Css: "#frs_list_pager > a.next.pagination-item",
+        },
+        Limit: 3,
+    }
+    err := rabi.Crawl(context.Background(), job, func(ret []interface{}, nextPageUrl string, currentPageNo int) bool {
+        for _, item := range ret {
+            fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+        }
+        if currentPageNo >= job.Limit {
+            return true
+        }
+        return false
+    }, nil, []chromedp.Action{
+        chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
+    })
+    if err != nil {
+        panic(fmt.Sprintf("%+v", err))
+    }
+}
+```
+
+Xpath Expression:
+
+```go
+func TestRabidaXpathImpl_Crawl(t *testing.T) {
 	conf := config.LoadFromEnv()
 	fmt.Printf("%+v\n", conf)
+
 	rabi := NewRabida(conf)
 	job := Job{
-		Link: "https://tieba.baidu.com/f?kw=nba",
+		Link: "https://you.ctrip.com/sight/shenzhen26/2778.html",
 		CssSelector: CssSelector{
-			Scope: `#thread_list > li.j_thread_list`,
+			XpathScope: `//*[@id="commentModule"]/div[@class='commentList']/div`,
 			Attrs: map[string]CssSelector{
-				"title": {
-					Css: "div.threadlist_title > a",
+				"content": {
+					Xpath: "//div[@class='commentDetail']",
 				},
 				"date": {
-					Css: "span.threadlist_reply_date",
+					Xpath: `//div[@class='commentTime']`,
 				},
 			},
 		},
 		Paginator: CssSelector{
-			Css: "#frs_list_pager > a.next.pagination-item",
+			Xpath: "//*[@id='commentModule']//li[@class=' ant-pagination-next' and not(@aria-disabled='true')]",
 		},
 		Limit: 3,
 	}
@@ -70,6 +119,7 @@ func TestRabidaImplCrawl(t *testing.T) {
 		for _, item := range ret {
 			fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
 		}
+		logrus.Printf("currentPageNo: %d\n", currentPageNo)
 		if currentPageNo >= job.Limit {
 			return true
 		}
@@ -78,8 +128,11 @@ func TestRabidaImplCrawl(t *testing.T) {
 		chromedp.EmulateViewport(1777, 903, chromedp.EmulateLandscape),
 	})
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		t.Error(fmt.Sprintf("%+v", err))
 	}
 }
 ```
+
+
+
 
