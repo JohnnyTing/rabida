@@ -45,7 +45,7 @@ RABI_PROXY=
 
 See [examples](https://github.com/JohnnyTing/rabida/blob/master/examples) for more details
 
-Css Selectior:
+Css Selector:
 
 ```go
 func TestRabidaImplCrawl(t *testing.T) {
