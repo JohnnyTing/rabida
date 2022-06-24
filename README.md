@@ -14,9 +14,10 @@ Rabida is a simply crawler framework based on [chromedp](https://github.com/chro
 - `Delay And Timeout`:  can customize delay and timeout.
 - `AntiDetection`: default loaded anti_detetion script for current job. script sourced
   from [puppeteer-extra-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/extract-stealth-evasions#readme)
-- `Strict Mode`: useragent、browser、platform must be matched，will be related chrome-mac if true
-- `Xpath`: specify xpath expression to lookup elements
-- `Iframe`: be able to specify the iframe selector
+- `Strict Mode`: useragent、browser、platform must be matched，will be related chrome-mac if true.
+- `Xpath`: specify xpath expression to lookup elements.
+- `Iframe`: be able to specify the iframe selector.
+- `Scroll`: scroll for current page. ScrollType is scrollBy and scrollTo. default is scrollBy, behave like window.scrollBy, window.scrollTo.
 
 ### Install
 
@@ -128,5 +129,62 @@ func TestRabidaXpathImpl_Crawl(t *testing.T) {
     if err != nil {
         t.Error(fmt.Sprintf("%+v", err))
     }
+}
+```
+
+Scorll API:
+
+```go
+func TestRabidaImplCrawlScrollSmooth(t *testing.T) {
+    t.Run("CrawlScrollSmooth", func(t *testing.T) {
+        conf := config.LoadFromEnv()
+        fmt.Printf("%+v\n", conf)
+        rabi := NewRabida(conf)
+        job := Job{
+            Link: "https://twitter.com/NASA",
+            CssSelector: CssSelector{
+                Scope: `div[data-testid='cellInnerDiv'] article[data-testid='tweet']`,
+                Attrs: map[string]CssSelector{
+                    "title": {
+                        Css: `div[data-testid="tweetText"]`,
+                    },
+                    "date": {
+                        Css:  `a > time`,
+                        Attr: `datetime`,
+                    },
+                    "link": {
+                        Css:  `a[role="link"][href*=status]`,
+                        Attr: `href`,
+                    },
+                    "reply": {
+                        Css:  `div[data-testid="reply"]`,
+                        Attr: `aria-label`,
+                    },
+                    "retweet": {
+                        Css:  `div[data-testid="retweet"]`,
+                        Attr: `aria-label`,
+                    },
+                    "like": {
+                        Css:  `div[data-testid="like"]`,
+                        Attr: `aria-label`,
+                    },
+                },
+            },
+            Limit: 5,
+        }
+        err := rabi.CrawlScrollSmooth(context.Background(), job, func(ret []interface{}, currentPageNo int) bool {
+            for _, item := range ret {
+                fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+            }
+            if currentPageNo >= job.Limit {
+                return true
+            }
+            return false
+        }, nil, nil)
+        if err != nil {
+            t.Errorf("%+v", err)
+        }
+
+    })
 }
 ```

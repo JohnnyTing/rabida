@@ -17,6 +17,7 @@ Rabida 是一个基于 [chromedp](https://github.com/chromedp/chromedp) 简单�
 - `严格模式`: useragent、浏览器、浏览器的平台必须匹配，如果设置成true，将设置为chrome-mac相关的useragent、chrome浏览器、浏览器平台为Mac。针对于某些网站的反爬机制。
 - `Xpath表达式`: 使用xpath表达式获取元素
 - `Iframe`: 指定iframe选择器，获取页面某个iframe作为父级元素
+- `Scroll`: 滚动当前页面，ScrollType类型为scrollBy和scrollTo，默认是scrollBy，跟window.scrollBy, window.scrollTo表现行为一样.
 
 ### 安装
 
@@ -128,5 +129,62 @@ func TestRabidaXpathImpl_Crawl(t *testing.T) {
     if err != nil {
         t.Error(fmt.Sprintf("%+v", err))
     }
+}
+```
+
+Scorll用法:
+
+```go
+func TestRabidaImplCrawlScrollSmooth(t *testing.T) {
+    t.Run("CrawlScrollSmooth", func(t *testing.T) {
+        conf := config.LoadFromEnv()
+        fmt.Printf("%+v\n", conf)
+        rabi := NewRabida(conf)
+        job := Job{
+            Link: "https://twitter.com/NASA",
+            CssSelector: CssSelector{
+                Scope: `div[data-testid='cellInnerDiv'] article[data-testid='tweet']`,
+                Attrs: map[string]CssSelector{
+                    "title": {
+                        Css: `div[data-testid="tweetText"]`,
+                    },
+                    "date": {
+                        Css:  `a > time`,
+                        Attr: `datetime`,
+                    },
+                    "link": {
+                        Css:  `a[role="link"][href*=status]`,
+                        Attr: `href`,
+                    },
+                    "reply": {
+                        Css:  `div[data-testid="reply"]`,
+                        Attr: `aria-label`,
+                    },
+                    "retweet": {
+                        Css:  `div[data-testid="retweet"]`,
+                        Attr: `aria-label`,
+                    },
+                    "like": {
+                        Css:  `div[data-testid="like"]`,
+                        Attr: `aria-label`,
+                    },
+                },
+            },
+            Limit: 5,
+        }
+        err := rabi.CrawlScrollSmooth(context.Background(), job, func(ret []interface{}, currentPageNo int) bool {
+            for _, item := range ret {
+                fmt.Println(gabs.Wrap(item).StringIndent("", "  "))
+            }
+            if currentPageNo >= job.Limit {
+                return true
+            }
+            return false
+        }, nil, nil)
+        if err != nil {
+            t.Errorf("%+v", err)
+        }
+
+    })
 }
 ```
