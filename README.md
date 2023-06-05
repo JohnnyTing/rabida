@@ -4,6 +4,11 @@
 
 Rabida is a simply crawler framework based on [chromedp](https://github.com/chromedp/chromedp/) .
 
+* [Supported features](#supported-features)
+* [Install](#install)
+* [Configuration](#configuration)
+* [Usage](#usage)
+
 ### Supported features
 
 - `Pagination`:  specify css selector for next page.
